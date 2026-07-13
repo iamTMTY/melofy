@@ -1,0 +1,57 @@
+services:
+  mongodb:
+    image: mongo:7
+    container_name: melofy-mongodb
+    ports:
+      - '27018:27017'
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: melofy
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: melofy-redis
+    ports:
+      - '16379:6379'
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    container_name: melofy-server
+    ports:
+      - '3001:3001'
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - MONGO_URI=mongodb://mongodb:27017/melofy
+      - REDIS_URL=redis://redis:6379
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o}
+    depends_on:
+      - mongodb
+      - redis
+    restart: unless-stopped
+
+  client:
+    build:
+      context: .
+      dockerfile: client/Dockerfile
+    container_name: melofy-client
+    ports:
+      - '8080:3000'
+    environment:
+      - API_SERVER_URL=http://server:3001
+    depends_on:
+      - server
+    restart: unless-stopped
+
+volumes:
+  mongodb_data:
+  redis_data:
