@@ -1,12 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Outfit } from 'next/font/google';
 import './globals.css';
-
-const outfit = Outfit({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700', '800'],
-  display: 'swap',
-});
 
 export const metadata: Metadata = {
   title: 'Melofy — Translated Lyrics, Synced',
@@ -55,7 +48,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`${outfit.className} min-h-screen bg-white dark:bg-[#1c1c1e] text-gray-900 dark:text-white antialiased`}>
+      <body className="min-h-screen bg-white dark:bg-[#1c1c1e] text-gray-900 dark:text-white antialiased font-sans" style={{ fontFamily: "'Outfit', sans-serif" }}>
         <div className="relative flex min-h-screen flex-col">
           {children}
         </div>

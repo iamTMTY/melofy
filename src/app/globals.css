@@ -1,3 +1,9 @@
+@import '@fontsource/outfit/400.css';
+@import '@fontsource/outfit/500.css';
+@import '@fontsource/outfit/600.css';
+@import '@fontsource/outfit/700.css';
+@import '@fontsource/outfit/800.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -94,6 +100,8 @@
   }
   .hide-scrollbar::-webkit-scrollbar {
     display: none;
+    width: 0;
+    height: 0;
   }
 }
 

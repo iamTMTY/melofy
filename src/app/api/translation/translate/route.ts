@@ -47,7 +47,9 @@ export async function POST(req: NextRequest) {
 
     const { translatedLyrics, sourceLanguage } = await translateLyrics(
       originalLyrics,
-      targetLanguage
+      targetLanguage,
+      artist,
+      title
     );
 
     await saveCachedTranslation({

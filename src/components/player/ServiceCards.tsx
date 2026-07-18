@@ -16,7 +16,7 @@ interface ServiceConfig {
 }
 
 const SERVICES: ServiceConfig[] = [
-  { id: 'spotify', name: 'Spotify', route: '/spotify', color: '#1DB954' },
+  { id: 'spotify', name: 'Spotify', route: '/playing', color: '#1DB954' },
   { id: 'apple_music', name: 'Apple Music', route: '/apple-music', color: '#FA233B' },
   { id: 'youtube_music', name: 'YouTube Music', route: '/youtube-music', color: '#FF0000' },
 ];

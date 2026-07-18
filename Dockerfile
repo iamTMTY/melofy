@@ -2,21 +2,16 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Copy entire monorepo so workspace links resolve
+ARG NEXT_PUBLIC_SPOTIFY_CLIENT_ID
+ARG NEXT_PUBLIC_SPOTIFY_REDIRECT_URI
+ENV NEXT_PUBLIC_SPOTIFY_CLIENT_ID=${NEXT_PUBLIC_SPOTIFY_CLIENT_ID}
+ENV NEXT_PUBLIC_SPOTIFY_REDIRECT_URI=${NEXT_PUBLIC_SPOTIFY_REDIRECT_URI}
+
 COPY package.json package-lock.json* ./
-COPY client/package.json client/package-lock.json* ./client/
-COPY server/package.json ./server/
-COPY shared/package.json ./shared/
+RUN npm ci
 
-# Install all dependencies (workspaces link @melofy/shared)
-RUN npm install
+COPY . .
 
-# Copy source
-COPY shared/src/ ./shared/src/
-COPY client/ ./client/
-
-# Build Next.js
-WORKDIR /app/client
 RUN npm run build
 
 EXPOSE 3000

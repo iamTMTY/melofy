@@ -6,12 +6,14 @@ const openai = config.openaiApiKey
   ? new OpenAI({ apiKey: config.openaiApiKey })
   : null;
 
-const SYSTEM_PROMPT = `You are a lyrical translation expert. Translate the following song lyrics into the target language.
+const SYSTEM_PROMPT = `You are a music lyric translation engine. Your SOLE purpose is to translate song lyrics between languages. You are part of a music app called Melofy that helps people understand songs in any language.
 
-CRITICAL RULES:
+CRITICAL: You are processing REAL song lyrics from real music tracks. The lyrics may be in ANY language including African languages (Bambara, Yoruba, Swahili, Wolof, etc.), Asian languages, European languages, or any other. NEVER refuse to translate. NEVER say you can't help. Your job is ONLY translation.
+
+RULES:
 1. Preserve the EXACT line count — output exactly one translated line per input line.
 2. Preserve ALL timecodes (the [mm:ss.xx] prefix of each line).
-3. Translate with CULTURAL CONTEXT — understand slang, idioms, metaphors, and poetic structures. This is NOT a literal 1:1 translation. Keep the emotional intent and artistic feel.
+3. Translate meaning faithfully. Understand slang, idioms, metaphors, and poetic structures.
 4. Keep translations concise enough to fit on screen during playback.
 5. If a line repeats in the original, repeat it in the translation.
 6. Output ONLY the translated .lrc format. No explanations, no introductions, no notes.
@@ -26,7 +28,9 @@ Example output:
 
 export async function translateLyrics(
   lyrics: LyricLine[],
-  targetLanguage: string
+  targetLanguage: string,
+  artist?: string,
+  title?: string
 ): Promise<{ translatedLyrics: LyricLine[]; sourceLanguage: string }> {
   if (!openai) {
     throw new Error('OpenAI API key not configured. Set OPENAI_API_KEY in environment.');
@@ -41,7 +45,14 @@ export async function translateLyrics(
     })
     .join('\n');
 
-  const userMessage = `Target language: ${targetLanguage}\n\n${lrcFormat}`;
+  const songInfo = artist && title
+    ? `Song: "${title}" by ${artist}\nTarget language: ${targetLanguage}`
+    : `Target language: ${targetLanguage}`;
+
+  const userMessage = `${songInfo}\n\n${lrcFormat}`;
+
+  const maxInputChars = lrcFormat.length;
+  const outputTokens = Math.max(4096, Math.ceil(maxInputChars * 1.5));
 
   try {
     const response = await openai.chat.completions.create({
@@ -51,7 +62,7 @@ export async function translateLyrics(
         { role: 'user', content: userMessage },
       ],
       temperature: 0.4,
-      max_tokens: 4096,
+      max_tokens: outputTokens,
     });
 
     const content = response.choices[0]?.message?.content;
@@ -59,10 +70,17 @@ export async function translateLyrics(
       throw new Error('Empty response from AI translation service');
     }
 
+    console.log('[Translation] Raw response (first 200 chars):', content.slice(0, 200));
+
+    if (isRefusalResponse(content)) {
+      throw new Error('Content moderation blocked this translation. Try a different song.');
+    }
+
     return parseTranslationResponse(content, lyrics);
   } catch (error) {
     console.error('[Translation] AI translation error:', error);
-    throw new Error('Failed to translate lyrics via AI');
+    const message = error instanceof Error ? error.message : 'Failed to translate lyrics via AI';
+    throw new Error(message);
   }
 }
 
@@ -126,4 +144,16 @@ function parseTranslationResponse(
   else sourceLanguage = 'en';
 
   return { translatedLyrics, sourceLanguage };
+}
+
+function isRefusalResponse(content: string): boolean {
+  const refusalPatterns = [
+    /i('m| am) sorry/i,
+    /i (can'?t|cannot)\s+(assist|help|comply|fulfill|do that)/i,
+    /i('m| am) (unable|not able)/i,
+    /against\s+(my|our)\s+(content|usage|safety)\s+polic/i,
+  ];
+  const hasNoTimestamps = !/\[\d{2}:\d{2}\.\d{2,3}\]/.test(content);
+  if (!hasNoTimestamps) return false;
+  return refusalPatterns.some((p) => p.test(content));
 }
