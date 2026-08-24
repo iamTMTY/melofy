@@ -2,6 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const SPOTIFY_CLIENT_ID = process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID || '';
 const REDIRECT_URI = process.env.NEXT_PUBLIC_SPOTIFY_REDIRECT_URI || 'http://127.0.0.1:3009/api/auth/spotify/callback';
+// Public origin to send the browser back to. Behind a reverse proxy (Traefik),
+// `req.url` resolves to the container's internal host (localhost:3009), so we
+// derive the real origin from the configured redirect URI instead.
+const APP_ORIGIN = (() => {
+  try {
+    return new URL(REDIRECT_URI).origin;
+  } catch {
+    return 'http://127.0.0.1:3009';
+  }
+})();
 const SCOPES = [
   'streaming',
   'user-read-email',
@@ -38,7 +48,7 @@ export async function GET(req: NextRequest) {
   const error = req.nextUrl.searchParams.get('error');
 
   if (error) {
-    return NextResponse.redirect(new URL(`/?error=${error}`, req.url));
+    return NextResponse.redirect(new URL(`/?error=${error}`, APP_ORIGIN));
   }
 
   if (!code) {
@@ -84,8 +94,8 @@ export async function GET(req: NextRequest) {
 
     const tokens = await tokenResponse.json();
 
-    // Redirect to the client callback page with tokens encoded in the URL hash
-    const callbackUrl = new URL('/', req.url);
+    // Redirect back to the app with tokens in the query string.
+    const callbackUrl = new URL('/', APP_ORIGIN);
     callbackUrl.searchParams.set('spotify_connected', 'true');
     callbackUrl.searchParams.set('access_token', tokens.access_token);
     callbackUrl.searchParams.set('refresh_token', tokens.refresh_token || '');
@@ -94,6 +104,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(callbackUrl);
   } catch (err) {
     console.error('[Spotify Auth] Token exchange error:', err);
-    return NextResponse.redirect(new URL('/?error=token_exchange_failed', req.url));
+    return NextResponse.redirect(new URL('/?error=token_exchange_failed', APP_ORIGIN));
   }
 }
