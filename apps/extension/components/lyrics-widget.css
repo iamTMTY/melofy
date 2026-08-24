@@ -1,0 +1,316 @@
+/* Injected into the widget's shadow root (cssInjectionMode: 'ui'), so it neither
+   leaks into nor inherits from the YouTube Music page. Plain CSS on purpose —
+   Tailwind's theme tokens don't resolve inside a shadow root.
+
+   Design language mirrors the Melofy product: translucent materials, spring-ish
+   ease-out motion, an emphasized active lyric line, restrained accent. */
+
+.melofy-panel,
+.melofy-fab {
+  --accent: #7c5cff;
+  --accent-2: #a78bfa;
+  --text: #f4f5fa;
+  --muted: rgba(235, 238, 245, 0.52);
+  --dim: rgba(235, 238, 245, 0.32);
+  --hair: rgba(255, 255, 255, 0.09);
+  --surface: rgba(20, 21, 28, 0.72);
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+  box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
+}
+.melofy-panel *,
+.melofy-fab * { box-sizing: border-box; }
+
+/* --- Launcher (collapsed) ------------------------------------------------- */
+.melofy-fab {
+  position: fixed;
+  right: 18px;
+  bottom: 96px;
+  z-index: 2147483000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #fff;
+  background: linear-gradient(160deg, var(--accent-2), var(--accent));
+  box-shadow: 0 10px 30px rgba(80, 50, 200, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  cursor: pointer;
+  transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.22s ease;
+}
+.melofy-fab:hover { transform: translateY(-2px) scale(1.03); box-shadow: 0 14px 36px rgba(80, 50, 200, 0.5); }
+.melofy-fab:active { transform: scale(0.96); }
+.melofy-fab-dot {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 0 0 2px var(--accent);
+  animation: melofy-pulse 1s ease-in-out infinite;
+}
+
+/* --- Panel (expanded) ----------------------------------------------------- */
+.melofy-panel {
+  position: fixed;
+  top: 64px;
+  right: 16px;
+  width: 372px;
+  max-width: calc(100vw - 32px);
+  /* height is set inline (half vs full); default anchor is top-right unless dragged */
+  z-index: 2147483000;
+  display: flex;
+  flex-direction: column;
+  color: var(--text);
+  background: var(--surface);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
+  backdrop-filter: blur(30px) saturate(180%);
+  border: 1px solid var(--hair);
+  border-top-color: rgba(255, 255, 255, 0.16);
+  border-radius: 22px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+  transform-origin: bottom right;
+  animation: melofy-materialize 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: height 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes melofy-materialize {
+  from { opacity: 0; transform: translateY(10px) scale(0.94); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.melofy-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 14px 11px;
+  cursor: grab;
+  touch-action: none; /* let pointer events drive the drag on touch devices */
+  -webkit-user-select: none;
+  user-select: none;
+}
+.melofy-header:active { cursor: grabbing; }
+.melofy-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.melofy-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+}
+.melofy-brand-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  color: #fff;
+  background: linear-gradient(160deg, var(--accent-2), var(--accent));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+.melofy-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--accent-2);
+  animation: melofy-pulse 1s ease-in-out infinite;
+}
+@keyframes melofy-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+.melofy-collapse,
+.melofy-iconbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 999px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease, transform 0.1s ease;
+}
+.melofy-collapse:hover,
+.melofy-iconbtn:hover { color: var(--text); background: rgba(255, 255, 255, 0.12); }
+.melofy-collapse:active,
+.melofy-iconbtn:active { transform: scale(0.92); }
+
+/* Now playing */
+.melofy-nowplaying {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 4px 14px 12px;
+}
+.melofy-art {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: 11px;
+  object-fit: cover;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+}
+.melofy-art-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: linear-gradient(160deg, var(--accent-2), var(--accent));
+}
+.melofy-np-meta { min-width: 0; }
+.melofy-np-title {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.melofy-np-artist {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Controls */
+.melofy-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 14px 12px;
+  border-bottom: 1px solid var(--hair);
+}
+.melofy-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0;
+}
+.melofy-switch-track {
+  position: relative;
+  width: 38px;
+  height: 22px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  transition: background 0.2s ease;
+}
+.melofy-switch.is-on .melofy-switch-track { background: var(--accent); }
+.melofy-switch-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.melofy-switch.is-on .melofy-switch-thumb { transform: translateX(16px); }
+.melofy-select {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--hair);
+  border-radius: 9px;
+  padding: 7px 9px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.melofy-select:focus { outline: none; border-color: var(--accent); }
+
+/* Font size (S/M/L) — mirrors the web app's A·A·A control */
+.melofy-size {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto; /* push size + language select to the right */
+}
+.msz {
+  border: none;
+  background: transparent;
+  color: var(--dim);
+  cursor: pointer;
+  border-radius: 7px;
+  padding: 2px 7px;
+  font-weight: 700;
+  line-height: 1;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.msz:hover { color: var(--text); }
+.msz.is-active { background: rgba(255, 255, 255, 0.14); color: var(--text); }
+.msz[data-sz='small'] { font-size: 11px; }
+.msz[data-sz='medium'] { font-size: 13px; }
+.msz[data-sz='large'] { font-size: 16px; }
+
+/* Lyrics — emphasized active line, dimmed context (mirrors the product) */
+.melofy-lines {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 16px 40px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
+  -webkit-mask-image: linear-gradient(to bottom, transparent, black 8%, black 88%, transparent);
+  mask-image: linear-gradient(to bottom, transparent, black 8%, black 88%, transparent);
+}
+.melofy-lines::-webkit-scrollbar { width: 6px; }
+.melofy-lines::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.16); border-radius: 999px; }
+.melofy-line {
+  padding: 8px 0;
+  color: var(--dim);
+  opacity: 1;
+  transition: color 0.3s ease, transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.melofy-line.is-past { color: var(--muted); }
+.melofy-line.is-unsynced { color: var(--muted); }
+.melofy-line.is-active { color: var(--text); transform: translateX(3px); }
+.melofy-line-primary {
+  font-size: 16px;
+  line-height: 1.45;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+.melofy-line.is-active .melofy-line-primary { font-size: 18px; font-weight: 700; }
+.melofy-line-secondary {
+  margin-top: 3px;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--dim);
+}
+.melofy-line.is-active .melofy-line-secondary { color: var(--muted); }
+
+/* S/M/L scaling — medium keeps the defaults above */
+.melofy-lines[data-size='small'] .melofy-line-primary { font-size: 14px; }
+.melofy-lines[data-size='small'] .melofy-line.is-active .melofy-line-primary { font-size: 16px; }
+.melofy-lines[data-size='small'] .melofy-line-secondary { font-size: 11.5px; }
+.melofy-lines[data-size='large'] .melofy-line-primary { font-size: 19px; }
+.melofy-lines[data-size='large'] .melofy-line.is-active .melofy-line-primary { font-size: 22px; }
+.melofy-lines[data-size='large'] .melofy-line-secondary { font-size: 14px; }
+
+.melofy-state { padding: 16px 2px; font-size: 13px; color: var(--muted); }
+.melofy-error { color: #ff9d9d; }
+.melofy-muted { color: var(--muted); }
+
+@media (prefers-reduced-motion: reduce) {
+  .melofy-panel { animation: melofy-fade 0.2s ease; transition: none; }
+  .melofy-fab, .melofy-collapse, .melofy-iconbtn, .melofy-switch-thumb, .melofy-line { transition: none; }
+  @keyframes melofy-fade { from { opacity: 0; } to { opacity: 1; } }
+}

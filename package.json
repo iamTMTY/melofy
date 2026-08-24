@@ -2,33 +2,30 @@
   "name": "melofy",
   "version": "1.0.0",
   "private": true,
-  "description": "Cross-platform app that detects currently playing songs and provides AI-translated, synced lyrics",
+  "description": "Melofy monorepo — AI-translated, synced lyrics across web, a browser extension, and an eval harness.",
+  "packageManager": "pnpm@9.15.4",
   "scripts": {
-    "dev": "next dev -p 3009",
-    "build": "next build",
-    "start": "next start",
-    "typecheck": "tsc --noEmit",
-    "docker:up": "docker compose up -d",
-    "docker:down": "docker compose down"
-  },
-  "dependencies": {
-    "@fontsource/outfit": "^5.2.8",
-    "framer-motion": "^11.0.0",
-    "ioredis": "^5.3.2",
-    "mongoose": "^8.2.0",
-    "next": "^14.1.0",
-    "openai": "^4.28.0",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "zod": "^3.22.0"
+    "dev": "turbo run dev",
+    "dev:web": "pnpm --filter @melofy/web dev",
+    "dev:eval": "pnpm --filter @melofy/eval dev",
+    "dev:ext": "pnpm --filter @melofy/extension dev",
+    "build": "turbo run build",
+    "build:ext": "pnpm --filter @melofy/extension build",
+    "build:ext:firefox": "pnpm --filter @melofy/extension build:firefox",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "docker:up": "docker compose --env-file .env -f infra/docker-compose.yml up -d mongodb redis",
+    "docker:down": "docker compose --env-file .env -f infra/docker-compose.yml down",
+    "eval:dataset:sync": "pnpm --filter @melofy/eval dataset:sync",
+    "eval:dataset:from-db": "pnpm --filter @melofy/eval dataset:from-db",
+    "langfuse:up": "docker compose -f infra/langfuse/docker-compose.yml --env-file .env up -d",
+    "langfuse:down": "docker compose -f infra/langfuse/docker-compose.yml --env-file .env down"
   },
   "devDependencies": {
-    "@types/node": "^20.11.0",
-    "@types/react": "^18.2.0",
-    "@types/react-dom": "^18.2.0",
-    "autoprefixer": "^10.4.0",
-    "postcss": "^8.4.0",
-    "tailwindcss": "^3.4.0",
-    "typescript": "^5.4.0"
+    "turbo": "^2.3.3"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

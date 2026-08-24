@@ -1,0 +1,21 @@
+# Production image for @melofy/web, built from the monorepo root (context: ..).
+FROM node:20-alpine AS build
+RUN corepack enable
+WORKDIR /repo
+
+# Install with a warm cache: copy workspace manifests first.
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc turbo.json tsconfig.base.json ./
+COPY apps/web/package.json ./apps/web/package.json
+RUN pnpm install --frozen-lockfile --filter @melofy/web...
+
+# Build the web app. NEXT_PUBLIC_* must be present at build time (inlined).
+COPY . .
+ARG NEXT_PUBLIC_SPOTIFY_CLIENT_ID
+ARG NEXT_PUBLIC_SPOTIFY_REDIRECT_URI
+ENV NEXT_PUBLIC_SPOTIFY_CLIENT_ID=${NEXT_PUBLIC_SPOTIFY_CLIENT_ID}
+ENV NEXT_PUBLIC_SPOTIFY_REDIRECT_URI=${NEXT_PUBLIC_SPOTIFY_REDIRECT_URI}
+RUN pnpm --filter @melofy/web build:docker
+
+EXPOSE 3009
+# Runtime env (Mongo/Redis/OpenAI) is injected by docker-compose, so no dotenv here.
+CMD ["pnpm", "--filter", "@melofy/web", "start:docker"]

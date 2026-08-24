@@ -1,0 +1,55 @@
+# Run from the repo root: `pnpm docker:up` (starts mongodb + redis for local dev).
+# The `app` service builds the production web image (monorepo + pnpm) and is
+# opt-in: `docker compose -f infra/docker-compose.yml up -d app`.
+name: melofy
+
+services:
+  mongodb:
+    image: mongo:7
+    container_name: melofy-mongodb
+    ports:
+      - '27018:27017'
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: melofy
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: melofy-redis
+    ports:
+      - '16379:6379'
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+
+  app:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.web
+      args:
+        - NEXT_PUBLIC_SPOTIFY_CLIENT_ID=${NEXT_PUBLIC_SPOTIFY_CLIENT_ID}
+        - NEXT_PUBLIC_SPOTIFY_REDIRECT_URI=${NEXT_PUBLIC_SPOTIFY_REDIRECT_URI}
+    container_name: melofy-app
+    ports:
+      - '8080:3009'
+    environment:
+      - NODE_ENV=production
+      - PORT=3009
+      - MONGO_URI=mongodb://mongodb:27017/melofy
+      - REDIS_URL=redis://redis:6379
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o}
+      - TWO_STEP_TRANSLATION=${TWO_STEP_TRANSLATION:-true}
+      - NEXT_PUBLIC_SPOTIFY_CLIENT_ID=${NEXT_PUBLIC_SPOTIFY_CLIENT_ID}
+      - NEXT_PUBLIC_SPOTIFY_REDIRECT_URI=${NEXT_PUBLIC_SPOTIFY_REDIRECT_URI}
+    depends_on:
+      - mongodb
+      - redis
+    restart: unless-stopped
+
+volumes:
+  mongodb_data:
+  redis_data:

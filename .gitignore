@@ -1,11 +1,31 @@
-node_modules
-.next
-dist
+# dependencies & build output (anywhere in the workspace)
+node_modules/
+**/node_modules/
+.next/
+**/.next/
+dist/
+**/dist/
+.turbo/
+**/.turbo/
+.output/
+*.tsbuildinfo
+
+# env & secrets
 .env
 .env.local
 .env.production
+.env.*.local
+
+# logs / os
 *.log
 .DS_Store
-.turbo
-coverage
-docker-data
+coverage/
+docker-data/
+
+# eval: python env, models, generated dataset, run outputs (local-only, heavy)
+**/.venv/
+tools/eval-pipeline/models/
+apps/eval/dataset/
+apps/eval/runs/
+
+_tmp

@@ -1,12 +1,18 @@
-node_modules
-.next
-dist
+**/node_modules
+**/.next
+**/dist
+**/.turbo
+**/.output
 .env
 .env.local
 .env.production
+.env.*
 *.log
 .DS_Store
-.turbo
 coverage
-docker-data
 .git
+# heavy / local-only artifacts not needed in the web image
+tools/eval-pipeline/.venv
+tools/eval-pipeline/models
+apps/eval/dataset
+apps/eval/runs
