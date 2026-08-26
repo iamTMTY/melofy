@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { enforceRateLimit } from '@/lib/rate-limit';
 import { translateLyricsStreaming } from '@/lib/services/translation';
 import { fetchLyrics } from '@/lib/services/lyrics';
 import {
@@ -20,6 +21,9 @@ const TranslateRequestSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  const limited = await enforceRateLimit(req, { bucket: 'translate', limit: 30, windowSec: 60 });
+  if (limited) return limited;
+
   const body = await req.json().catch(() => null);
   const parsed = TranslateRequestSchema.safeParse(body);
   if (!parsed.success) {

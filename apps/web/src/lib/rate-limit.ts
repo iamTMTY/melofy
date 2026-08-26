@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getRedisClient } from '@/lib/db/redis';
 import { config } from '@/lib/config';
@@ -66,5 +67,54 @@ export async function consumeTranslation(req: NextRequest): Promise<RateLimitRes
   } catch (err) {
     console.warn('[rate-limit] Redis error — failing open:', err);
     return { allowed: true, remaining: limit, limit, resetAt };
+  }
+}
+
+export interface RateLimitOptions {
+  /** Redis key namespace for this route, e.g. 'lyrics' or 'flag'. */
+  bucket: string;
+  /** Max requests allowed per window, per caller IP. */
+  limit: number;
+  /** Window length in seconds. */
+  windowSec: number;
+}
+
+/**
+ * General fixed-window, per-IP request limit for an API route. Returns a ready-
+ * to-return 429 NextResponse when the caller is over budget, or null to proceed.
+ * This is the coarse abuse/DoS guard for ALL endpoints; the daily model-call
+ * budget (consumeTranslation) is separate and stricter. Fails OPEN on any Redis
+ * error so an infra blip never takes the API offline.
+ */
+export async function enforceRateLimit(
+  req: NextRequest,
+  { bucket, limit, windowSec }: RateLimitOptions
+): Promise<NextResponse | null> {
+  if (!limit || limit <= 0) return null;
+  try {
+    const redis = getRedisClient();
+    const nowSec = Math.floor(Date.now() / 1000);
+    const window = Math.floor(nowSec / windowSec);
+    const key = `rl:${bucket}:${hashIp(getClientIp(req))}:${window}`;
+    const count = await redis.incr(key);
+    if (count === 1) await redis.expire(key, windowSec);
+    if (count > limit) {
+      const retryAfter = windowSec - (nowSec % windowSec);
+      return NextResponse.json(
+        { error: 'Too many requests. Please slow down and try again shortly.' },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(retryAfter),
+            'X-RateLimit-Limit': String(limit),
+            'X-RateLimit-Remaining': '0',
+          },
+        }
+      );
+    }
+    return null;
+  } catch (err) {
+    console.warn('[rate-limit] Redis error — failing open:', err);
+    return null;
   }
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { enforceRateLimit } from '@/lib/rate-limit';
 import { translateLyrics } from '@/lib/services/translation';
 import {
   lookupCache,
@@ -44,6 +45,9 @@ function alignToLines(lines: string[], lyrics: LyricLine[]): string[] {
 }
 
 export async function POST(req: NextRequest) {
+  const limited = await enforceRateLimit(req, { bucket: 'ext-translate', limit: 30, windowSec: 60 });
+  if (limited) return limited;
+
   const body = await req.json().catch(() => null);
   const parsed = Schema.safeParse(body);
   if (!parsed.success) {

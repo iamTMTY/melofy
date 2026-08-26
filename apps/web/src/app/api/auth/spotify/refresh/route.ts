@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { enforceRateLimit } from '@/lib/rate-limit';
 
 const SPOTIFY_CLIENT_ID = process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID || '';
 
 export async function POST(req: NextRequest) {
+  const limited = await enforceRateLimit(req, { bucket: 'spotify-refresh', limit: 30, windowSec: 60 });
+  if (limited) return limited;
+
   try {
     const { refresh_token } = await req.json();
 

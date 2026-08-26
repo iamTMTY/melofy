@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchLyrics } from '@/lib/services/lyrics';
+import { enforceRateLimit } from '@/lib/rate-limit';
 
 export async function GET(req: NextRequest) {
+  const limited = await enforceRateLimit(req, { bucket: 'lyrics', limit: 60, windowSec: 60 });
+  if (limited) return limited;
+
   try {
     const { searchParams } = new URL(req.url);
     const artist = searchParams.get('artist');
