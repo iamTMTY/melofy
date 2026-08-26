@@ -17,7 +17,7 @@ export function AlbumArtBackground({ imageUrl, children, fixed = false }: AlbumA
   // Fall back to the default cover so there's always an atmospheric backdrop.
   const bg = imageUrl || DEFAULT_COVER;
   return (
-    <div className={`relative ${fixed ? 'h-[100dvh] overflow-hidden' : 'min-h-screen'}`}>
+    <div className={`relative ${fixed ? 'h-[100dvh] overflow-hidden' : 'min-h-[100dvh]'}`}>
       {/* Background Layer — clipped to container */}
       <div className="absolute inset-0 overflow-hidden">
         <AnimatePresence>
@@ -45,7 +45,7 @@ export function AlbumArtBackground({ imageUrl, children, fixed = false }: AlbumA
       </div>
 
       {/* Content */}
-      <div className={`relative z-10 flex flex-col ${fixed ? 'h-full min-h-0' : 'min-h-screen'}`}>{children}</div>
+      <div className={`relative z-10 flex flex-col ${fixed ? 'h-full min-h-0' : 'min-h-[100dvh]'}`}>{children}</div>
     </div>
   );
 }

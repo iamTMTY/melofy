@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useSearchParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useMelofy } from '@/hooks/useMelofy';
 import { useSpotifyPlayer } from '@/hooks/useSpotifyPlayer';
 import { useYouTubeMusicPlayer } from '@/hooks/useYouTubeMusicPlayer';
@@ -88,9 +89,9 @@ export function Dashboard() {
 
   return (
     <AlbumArtBackground imageUrl={albumArt}>
-      <main className="min-h-screen flex flex-col">
+      <main className="min-h-[100dvh] flex flex-col justify-center sm:justify-start gap-6 sm:gap-0 py-8 sm:py-0">
         {/* Hero */}
-        <div className="text-center pt-24 pb-10 px-6">
+        <div className="text-center px-6 sm:pt-24 sm:pb-10">
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
@@ -103,7 +104,7 @@ export function Dashboard() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ type: 'spring', bounce: 0, duration: 0.5, delay: 0.06 }}
-            className="mt-5 text-lg text-gray-500 dark:text-white max-w-md mx-auto leading-relaxed"
+            className="mt-4 sm:mt-5 text-base sm:text-lg text-gray-500 dark:text-white max-w-md mx-auto leading-relaxed"
           >
             AI-powered lyric translation, perfectly synced. 10 free translations or{' '}
             <ByokButton
@@ -115,15 +116,23 @@ export function Dashboard() {
         </div>
 
         {/* Language selector */}
-        <div className="flex justify-center mb-8">
+        <div className="flex justify-center sm:mb-8">
           <LanguagePicker />
         </div>
 
         {/* Service cards */}
-        <div className="pb-16">
+        <div className="sm:pb-16">
           <ServiceCards extensionDetected={extensionDetected} />
         </div>
       </main>
+
+      {/* Fixed, so it overlays without affecting the page's DOM flow. */}
+      <Link
+        href="/privacy"
+        className="fixed bottom-4 left-4 z-20 text-sm text-gray-400 transition-colors hover:text-gray-600 dark:text-white hover:underline"
+      >
+        Privacy
+      </Link>
     </AlbumArtBackground>
   );
 }

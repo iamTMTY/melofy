@@ -1,6 +1,25 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
+import { Outfit } from 'next/font/google';
+import localFont from 'next/font/local';
 import { PostHogProvider } from '@/components/analytics/PostHogProvider';
+
+// Self-hosted + preloaded in the document head so the fonts arrive WITH the page
+// (no flash-of-unstyled-text). next/font also injects a metric-adjusted fallback,
+// so there's no layout shift when the real face swaps in.
+const outfit = Outfit({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700', '800'],
+  variable: '--font-outfit',
+  display: 'swap',
+});
+
+// Decorative "Melofy" wordmark face (personal-use license).
+const bunchBlossoms = localFont({
+  src: '../../public/fonts/BunchBlossoms.ttf',
+  variable: '--font-brand',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: 'Melofy — Translated Lyrics, Synced',
@@ -30,7 +49,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning className={`${outfit.variable} ${bunchBlossoms.variable}`}>
       <head>
         <script
           dangerouslySetInnerHTML={{
@@ -49,9 +68,9 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="min-h-screen bg-white dark:bg-[#1c1c1e] text-gray-900 dark:text-white antialiased font-sans" style={{ fontFamily: "'Outfit', sans-serif" }}>
+      <body className="min-h-[100dvh] bg-white dark:bg-[#1c1c1e] text-gray-900 dark:text-white antialiased font-sans" style={{ fontFamily: 'var(--font-outfit), sans-serif' }}>
         <PostHogProvider>
-          <div className="relative flex min-h-screen flex-col">
+          <div className="relative flex min-h-[100dvh] flex-col">
             {children}
           </div>
         </PostHogProvider>

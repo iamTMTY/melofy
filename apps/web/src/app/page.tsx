@@ -7,7 +7,7 @@ import { Dashboard } from '@/components/home/Dashboard';
 export default function HomePage() {
   return (
     <MelofyProvider>
-      <Suspense fallback={<div className="min-h-screen bg-[#1c1c1e]" />}>
+      <Suspense fallback={<div className="min-h-[100dvh] bg-[#1c1c1e]" />}>
         <Dashboard />
       </Suspense>
     </MelofyProvider>

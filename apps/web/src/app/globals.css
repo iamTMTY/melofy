@@ -1,20 +1,9 @@
-@import '@fontsource/outfit/400.css';
-@import '@fontsource/outfit/500.css';
-@import '@fontsource/outfit/600.css';
-@import '@fontsource/outfit/700.css';
-@import '@fontsource/outfit/800.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Brand display face — Bunch Blossoms (personal-use license) */
-@font-face {
-  font-family: 'Bunch Blossoms';
-  src: url('/fonts/BunchBlossoms.ttf') format('truetype');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
+/* Brand display face (Bunch Blossoms) and Outfit are loaded via next/font in
+   app/layout.tsx — preloaded + metric-adjusted to avoid FOUT and layout shift. */
 
 @layer base {
   :root {
@@ -34,7 +23,7 @@
      Script glyphs overshoot the em box, so the line-box and vertical padding
      must be generous or the gradient-clipped fill cuts off the tops/tails. */
   .brand-wordmark {
-    font-family: 'Bunch Blossoms', cursive;
+    font-family: var(--font-brand), cursive;
     font-weight: 400;
     letter-spacing: 0.01em;
     line-height: 1.5;
