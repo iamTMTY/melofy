@@ -1,0 +1,29 @@
+# Melofy web app (pulled from GHCR). It carries NO proxy and binds NO ports — the
+# shared Traefik proxy (in your separate `infra` repo) discovers it via the labels
+# below and terminates TLS for melofy.temi.codes. Lives on the server at ~/melofy/.
+#
+#   cd ~/melofy && docker compose --env-file .env.production -f docker-compose.app.yml up -d
+#
+# IMAGE + runtime secrets come from ~/melofy/.env.production (chmod 600).
+# Requires the shared `edge` network + Traefik to already be running (infra repo).
+name: melofy
+
+services:
+  web:
+    image: ${IMAGE}
+    restart: unless-stopped
+    env_file: ./.env.production
+    expose:
+      - "3009"
+    networks: [edge]
+    mem_limit: 1g
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.melofy.rule=Host(`melofy.temi.codes`)"
+      - "traefik.http.routers.melofy.entrypoints=websecure"
+      - "traefik.http.routers.melofy.tls.certresolver=le"
+      - "traefik.http.services.melofy.loadbalancer.server.port=3009"
+
+networks:
+  edge:
+    external: true          # created + owned by the infra repo
