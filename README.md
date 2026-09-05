@@ -1,3 +1,4 @@
+testing miracode.ai
 # Melofy
 
 AI-translated, time-synced song lyrics. Melofy detects what you're currently playing and shows the lyrics translated into your language, line-by-line in sync with the music — across a **web app** and a **browser extension**, with an **eval harness** for measuring translation quality.
