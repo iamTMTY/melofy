@@ -7,17 +7,32 @@ import { LyricsView } from '../components/LyricsView';
 // or renames the tab, THIS is the only function to adjust — the rest is DOM-
 // agnostic. Verify selectors against a live music.youtube.com page.
 // Returns the container to render into ONLY when the Lyrics tab is the active one.
+// ponytail: these selectors are YouTube Music's undocumented DOM and WILL drift.
+// Failure is safe (no mount → native lyrics restored on the next poll) but it is
+// silent to the user — so we log the specific selector that broke, once, and
+// apps/extension/README.md carries the manual smoke checklist for a YTM update.
+let warnedSelector = false;
+const warnOnce = (what: string) => {
+  if (warnedSelector) return;
+  warnedSelector = true;
+  console.warn(`[Melofy] YTM DOM selector no longer matches: ${what}. Native lyrics left untouched.`);
+};
+
 function findLyricsMount(): HTMLElement | null {
   const page = document.querySelector('ytmusic-player-page');
   if (!page) return null;
-  const lyricsTab = Array.from(page.querySelectorAll<HTMLElement>('tp-yt-paper-tab')).find((t) =>
-    /lyric/i.test(t.textContent || '')
-  );
+  const tabs = Array.from(page.querySelectorAll<HTMLElement>('tp-yt-paper-tab'));
+  // The player page exists but has no tabs at all: that's a DOM change, not a
+  // timing gap — tabs render with the page.
+  if (tabs.length === 0) warnOnce('tp-yt-paper-tab (no tabs under ytmusic-player-page)');
+  const lyricsTab = tabs.find((t) => /lyric/i.test(t.textContent || ''));
   if (!lyricsTab) return null;
   const active =
     lyricsTab.getAttribute('aria-selected') === 'true' || lyricsTab.classList.contains('iron-selected');
   if (!active) return null;
-  return page.querySelector<HTMLElement>('#tab-renderer');
+  const mount = page.querySelector<HTMLElement>('#tab-renderer');
+  if (!mount) warnOnce('#tab-renderer (lyrics tab is active but has no renderer)');
+  return mount;
 }
 
 export default defineContentScript({

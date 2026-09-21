@@ -212,3 +212,50 @@ describe('free-text search runs when the scoped search finds only unsynced resul
     expect(calls.some((u) => u.includes('api/search?q='))).toBe(false);
   });
 });
+
+// Regression (review): a synced record already in hand from search was fetched
+// AGAIN via /api/get before being read, and a network failure on that redundant
+// call threw the outer catch — returning NO_LYRICS for a track we had lyrics for.
+describe('search results are read before any further network call', () => {
+  it('returns the in-hand synced record even when /api/get is unreachable', async () => {
+    const SYNCED = '[00:10.00]synced one\n[00:14.00]synced two';
+    const calls: string[] = [];
+    vi.stubGlobal('fetch', async (url: string) => {
+      calls.push(url);
+      if (url.includes('api/get?artist_name=Solana')) throw new TypeError('network down');
+      if (url.includes('api/search?artist_name=')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => [
+            { id: 9, artistName: 'Solana', trackName: 'Okunkun', duration: 159, syncedLyrics: SYNCED, plainLyrics: null },
+          ],
+        };
+      }
+      return { ok: false, status: 404, json: async () => ({}) };
+    });
+
+    const res = await fetchLyrics('Nobody', 'Okunkun', 159_000);
+    expect(res.synced).toBe(true);
+    expect(res.lines[0].original).toBe('synced one');
+    // The synced record was used directly — no redundant /api/get for it.
+    expect(calls.some((u) => u.includes('api/get?artist_name=Solana'))).toBe(false);
+  });
+
+  it('keeps banked unsynced words when a later LRCLIB call fails', async () => {
+    vi.stubGlobal('fetch', async (url: string) => {
+      if (url.includes('api/get?artist_name=Teledalase')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ id: 1, artistName: 'Teledalase', trackName: 'Oyeku', duration: 252, syncedLyrics: null, plainLyrics: 'exact one\nexact two' }),
+        };
+      }
+      throw new TypeError('network down'); // both search calls fail
+    });
+
+    const res = await fetchLyrics('Teledalase', 'Oyeku', 252_000);
+    expect(res.synced).toBe(false);
+    expect(res.lines.map((l) => l.original)).toEqual(['exact one', 'exact two']);
+  });
+});

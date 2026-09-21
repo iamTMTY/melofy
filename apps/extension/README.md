@@ -70,3 +70,35 @@ WXT_MELOFY_ORIGIN=https://melofy.app pnpm --filter @melofy/extension build
 - YTM selectors (`ytmusic-player-bar`, `#movie_player`) are best-effort and can
   break when YouTube Music changes its markup.
 - The web bridge requires the Melofy web tab to be open alongside the YTM tab.
+
+## YouTube Music DOM — smoke checklist
+
+The lyrics view mounts into YouTube Music's own lyrics tab via undocumented DOM
+selectors in `entrypoints/youtube-music.content.tsx` (`findLyricsMount`). YTM
+ships UI changes without notice, so **run this after any YTM redesign, and before
+each Web Store release**. Takes about two minutes.
+
+Selectors in play: `ytmusic-player-page` → `tp-yt-paper-tab` (text matches
+/lyric/i; active = `aria-selected="true"` or `.iron-selected`) → `#tab-renderer`.
+
+1. **Mounts.** Play any track, open the **Lyrics** tab. Melofy's view appears in
+   place of YTM's lyrics within ~1 s. If YTM's native lyrics show instead, open
+   DevTools → Console and look for `[Melofy] YTM DOM selector no longer matches:`
+   — it names the selector that broke.
+2. **Fails safe.** With the extension **disabled** from the popup, YTM's native
+   lyrics must be visible and scrollable — never a blank tab. Re-enable; Melofy
+   returns without a reload.
+3. **Survives tab switches.** Lyrics → Up next → Lyrics. Melofy's view returns
+   *instantly* with the same translation (no "Loading lyrics…"). A reload here
+   means the React root was torn down.
+4. **Survives track changes.** Skip to the next track while on the Lyrics tab.
+   New lyrics load; the previous track's lines never linger.
+5. **Survives navigation.** Leave the player page (click the logo), come back,
+   open Lyrics. Mounts again; nothing hidden.
+6. **Unsynced tracks.** Find a track LRCLIB has only as plain text (e.g. a
+   traditional/spoken piece). Lines render dimmed with the "Unsynced lyrics"
+   note and no line is highlighted.
+
+If (1) fails, update the three selectors in `findLyricsMount` and re-run all six.
+Do **not** widen them speculatively — a selector that matches the wrong element
+hides the wrong thing, which is worse than not mounting.

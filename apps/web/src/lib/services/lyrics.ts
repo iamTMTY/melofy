@@ -198,18 +198,28 @@ async function fetchFromLRCLIB(
     }
 
     if (results.length > 0) {
-      const best = results.find(usable) || results[0];
-      const viaGet = take(await tryGet(best.artistName, best.trackName));
-      if (viaGet) return viaGet;
+      // Every search result already carries its lyrics, so checking them costs
+      // nothing — do that BEFORE any further network call. Synced + duration-
+      // matching candidates first, then the rest; stop at the first synced hit.
+      // (Previously a redundant /api/get ran first, and a timeout on it threw
+      // away a synced record we were already holding.)
+      const ordered = [...results.filter(usable), ...results.filter((r) => !usable(r))];
+      for (const cand of ordered) {
+        const hit = take(fromRecord(cand));
+        if (hit) return hit;
+      }
 
-      const fromBest = take(fromRecord(best));
-      if (fromBest) return fromBest;
+      // Nothing listed is synced for this recording. One exact re-fetch of the
+      // top pick: /api/get with `duration` can surface a master search omitted.
+      const viaGet = take(await tryGet(ordered[0].artistName, ordered[0].trackName));
+      if (viaGet) return viaGet;
     }
 
     return fallbacks[0] ?? NO_LYRICS;
   } catch (err) {
     console.warn('[Lyrics] LRCLIB fetch failed:', err);
-    return NO_LYRICS;
+    // A late network failure must not discard words already in hand.
+    return fallbacks[0] ?? NO_LYRICS;
   }
 }
 
