@@ -182,15 +182,23 @@ async function fetchFromLRCLIB(
     const exact = take(await tryGet(artist, title));
     if (exact) return exact;
 
-    // LRCLIB ANDs artist_name + track_name, so it finds nothing when the credit
-    // we were handed doesn't match the one it indexed — a featured artist, or the
-    // producer credited first ("Killertunes, Solana" vs LRCLIB's "Solana"). Its
-    // free-text `q` matches either field, so retry that before giving up.
+    // LRCLIB ANDs artist_name + track_name, so it misses when the credit we were
+    // handed isn't the one it indexed — a featured artist, or the producer
+    // credited first ("Killertunes, Solana" vs LRCLIB's "Solana"). Its free-text
+    // `q` matches either field. Run it whenever the scoped search hasn't yielded
+    // a SYNCED match for this recording — not only when it returned nothing: a
+    // plain-only or wrong-master hit under the supplied credit must not stop us
+    // finding the synced upload filed under the credit LRCLIB actually uses.
+    const usable = (r: LRCLIBResponse) => !!r.syncedLyrics && sameRecording(r);
     let results = await trySearch({ artist_name: artist, track_name: title });
-    if (results.length === 0) results = await trySearch({ q: `${artist} ${title}` });
+    if (!results.some(usable)) {
+      const seen = new Set(results.map((r) => r.id));
+      const extra = await trySearch({ q: `${artist} ${title}` });
+      results = [...results, ...extra.filter((r) => !seen.has(r.id))];
+    }
 
     if (results.length > 0) {
-      const best = results.find((r) => r.syncedLyrics && sameRecording(r)) || results[0];
+      const best = results.find(usable) || results[0];
       const viaGet = take(await tryGet(best.artistName, best.trackName));
       if (viaGet) return viaGet;
 

@@ -124,7 +124,11 @@ async function main() {
   console.log(`Model  : ${model}\n`);
 
   const built: DatasetEntry[] = [];
+  // Two severities: `failures` are things that DIDN'T happen (LRCLIB down, draft
+  // call failed) and fail the run; `warnings` are things reviewers need to look
+  // at (a draft with a different line count) but the sheet still got written.
   const failures: string[] = [];
+  const warnings: string[] = [];
 
   let i = 0;
   for (const song of SONGS) {
@@ -174,7 +178,7 @@ async function main() {
       console.log(
         `OK — ${source_lines.length} lines${aligned ? '' : ` ⚠ draft has ${translated.length}`}`
       );
-      if (!aligned) failures.push(`${label}: line-count mismatch (${source_lines.length} vs ${translated.length})`);
+      if (!aligned) warnings.push(`${label}: line-count mismatch (${source_lines.length} vs ${translated.length}) — reviewer must realign`);
     } catch (err: any) {
       // Keep the source lyrics either way — they're the hard part to re-obtain.
       entry.reference_lines = [];
@@ -237,11 +241,16 @@ async function main() {
   }
   const lines = built.reduce((n, e) => n + e.source_lines.length, 0);
   console.log(`source lines  : ${lines}`);
+  if (warnings.length) {
+    console.log(`\n⚠ ${warnings.length} warning(s) — sheets written, review needed:`);
+    for (const w of warnings) console.log(`   - ${w}`);
+  }
   if (failures.length) {
-    console.log(`\n⚠ ${failures.length} issue(s):`);
+    console.log(`\n✖ ${failures.length} failure(s):`);
     for (const f of failures) console.log(`   - ${f}`);
   }
   console.log('\nNext: pnpm --filter @melofy/eval dataset:sync   (push to Langfuse)');
+  // Only genuine failures are non-zero; a mismatch is a review task, not a broken build.
   process.exit(failures.length ? 1 : 0);
 }
 

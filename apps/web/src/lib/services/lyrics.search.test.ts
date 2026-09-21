@@ -168,3 +168,47 @@ describe('sameRecording treats a missing duration as unverified', () => {
     expect(res.synced).toBe(true);
   });
 });
+
+// Regression (Greptile P1): the free-text retry used to run only when the scoped
+// search returned NOTHING. A plain-only or wrong-master hit under the supplied
+// credit therefore blocked it, defeating the "Killertunes, Solana" fix whenever
+// LRCLIB had anything at all under that credit.
+describe('free-text search runs when the scoped search finds only unsynced results', () => {
+  const SYNCED = '[00:10.00]synced one\n[00:14.00]synced two';
+
+  it('reaches the synced upload under the credit LRCLIB actually indexed', async () => {
+    const calls = mockLrclib({
+      // viaGet for the record the q search surfaces
+      'api/get?artist_name=Solana&track_name=Okunkun': {
+        id: 2, artistName: 'Solana', trackName: 'Okunkun', duration: 159, syncedLyrics: SYNCED, plainLyrics: null,
+      },
+      // scoped search: something exists under the supplied credit, but plain-only
+      'api/search?artist_name=': [
+        { id: 1, artistName: 'Killertunes', trackName: 'Okunkun', duration: 159, syncedLyrics: null, plainLyrics: 'plain one\nplain two' },
+      ],
+      'q=': [
+        { id: 2, artistName: 'Solana', trackName: 'Okunkun', duration: 159, syncedLyrics: SYNCED, plainLyrics: null },
+      ],
+    });
+
+    const res = await fetchLyrics('Killertunes, Solana', 'Okunkun', 159_000);
+    expect(res.synced).toBe(true);
+    expect(res.lines[0].original).toBe('synced one');
+    expect(calls.some((u) => u.includes('api/search?q='))).toBe(true);
+  });
+
+  it('skips the extra round trip when the scoped search already has a synced match', async () => {
+    const calls = mockLrclib({
+      'api/search?artist_name=': [
+        { id: 7, artistName: 'Solana', trackName: 'Okunkun', duration: 159, syncedLyrics: SYNCED, plainLyrics: null },
+      ],
+      'api/get?artist_name=Solana&track_name=Okunkun': {
+        id: 7, artistName: 'Solana', trackName: 'Okunkun', duration: 159, syncedLyrics: SYNCED, plainLyrics: null,
+      },
+    });
+
+    const res = await fetchLyrics('Nobody', 'Okunkun', 159_000);
+    expect(res.synced).toBe(true);
+    expect(calls.some((u) => u.includes('api/search?q='))).toBe(false);
+  });
+});
