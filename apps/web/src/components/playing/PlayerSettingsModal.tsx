@@ -5,6 +5,8 @@ import { motion } from 'framer-motion';
 import { useMelofy } from '@/hooks/useMelofy';
 import { LanguagePicker } from '@/components/shared/LanguagePicker';
 import { SourceSwitcher } from './SourceSwitcher';
+import { PRESET_ORDER, PRESETS, READING_PRIORITIES } from '@/lib/theme';
+import type { ReadingPriority } from '@/lib/types';
 
 // Consolidates the now-playing controls into one sheet — used on mobile where
 // they don't fit in a row. Translucent material + spring, dismissed by tapping
@@ -38,6 +40,59 @@ export function PlayerSettingsModal({ onClose }: { onClose: () => void }) {
         <h2 className="text-lg font-bold tracking-tight text-gray-900 dark:text-white mb-5">Lyrics settings</h2>
 
         <div className="flex flex-col gap-5">
+          {/* Theme preset — a bundle of background / accent / focus / density */}
+          <div className="flex flex-col gap-2">
+            <span className="text-sm font-medium text-gray-600 dark:text-white/60">Theme</span>
+            <div className="grid grid-cols-2 gap-2">
+              {PRESET_ORDER.map((key) => {
+                const preset = PRESETS[key];
+                const selected = (preferences.themePreset ?? 'classic') === key;
+                return (
+                  <button
+                    key={key}
+                    onClick={() => setPreferences({ themePreset: key })}
+                    aria-pressed={selected}
+                    className={`rounded-2xl border p-3 text-left transition-colors duration-200 ${
+                      selected
+                        ? 'border-melofy-500 bg-melofy-500/10'
+                        : 'border-black/[0.08] dark:border-white/10 hover:bg-black/[0.03] dark:hover:bg-white/[0.05]'
+                    }`}
+                  >
+                    <span className={`block text-[13px] font-semibold ${selected ? 'text-melofy-600 dark:text-melofy-300' : 'text-gray-900 dark:text-white'}`}>
+                      {preset.label}
+                    </span>
+                    <span className="mt-0.5 block text-[11px] leading-tight text-gray-500 dark:text-white/40">
+                      {preset.hint}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Reading priority — which line leads */}
+          <div className="flex flex-col gap-2">
+            <span className="text-sm font-medium text-gray-600 dark:text-white/60">Reading priority</span>
+            <div className="flex items-center rounded-full bg-black/[0.05] p-0.5 dark:bg-white/[0.08]">
+              {(Object.keys(READING_PRIORITIES) as ReadingPriority[]).map((key) => {
+                const selected = (preferences.readingPriority ?? 'understand') === key;
+                return (
+                  <button
+                    key={key}
+                    onClick={() => setPreferences({ readingPriority: key })}
+                    aria-pressed={selected}
+                    title={READING_PRIORITIES[key].hint}
+                    className={`h-8 flex-1 rounded-full text-[13px] font-semibold transition-all duration-200 ${
+                      selected ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-400 dark:text-white/40'
+                    }`}
+                  >
+                    {READING_PRIORITIES[key].label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Language — compact (anchors right, in bounds) + dropUp (bottom sheet
               has no room below, so the list opens above the trigger) */}
           <Row label="Translate to">

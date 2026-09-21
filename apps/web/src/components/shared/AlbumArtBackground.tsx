@@ -11,15 +11,30 @@ interface AlbumArtBackgroundProps {
    * The background stays fixed and any scrolling happens inside a child region.
    */
   fixed?: boolean;
+  /**
+   * What to put behind the content. `art` is the blurred cover (default);
+   * `plain` and `black` are for the Minimal / AMOLED presets, which skip the
+   * artwork entirely.
+   */
+  variant?: 'art' | 'plain' | 'black';
 }
 
-export function AlbumArtBackground({ imageUrl, children, fixed = false }: AlbumArtBackgroundProps) {
+export function AlbumArtBackground({ imageUrl, children, fixed = false, variant = 'art' }: AlbumArtBackgroundProps) {
   // Fall back to the default cover so there's always an atmospheric backdrop.
   const bg = imageUrl || DEFAULT_COVER;
   return (
-    <div className={`relative ${fixed ? 'h-[100dvh] overflow-hidden' : 'min-h-[100dvh]'}`}>
+    <div
+      className={`relative ${fixed ? 'h-[100dvh] overflow-hidden' : 'min-h-[100dvh]'} ${
+        variant === 'black'
+          ? 'bg-black'
+          : variant === 'plain'
+            ? 'bg-white dark:bg-[#0b0b0d]'
+            : ''
+      }`}
+    >
       {/* Background Layer — clipped to container */}
       <div className="absolute inset-0 overflow-hidden">
+        {variant === 'art' && (
         <AnimatePresence>
           <motion.div
             key={bg}
@@ -40,6 +55,7 @@ export function AlbumArtBackground({ imageUrl, children, fixed = false }: AlbumA
             <div className="absolute inset-0 bg-black/60 backdrop-blur-3xl" />
           </motion.div>
         </AnimatePresence>
+        )}
 
         <div className="absolute inset-0 bg-noise opacity-[0.015] pointer-events-none" />
       </div>

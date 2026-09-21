@@ -6,9 +6,22 @@ interface LRCLIBResponse {
   id: number;
   trackName: string;
   artistName: string;
+  duration?: number;
   syncedLyrics: string | null;
   plainLyrics: string | null;
 }
+
+export interface LyricsResult {
+  lines: LyricLine[];
+  /**
+   * False when LRCLIB only had plain text, or when its LRC belongs to a different
+   * recording of the song. Callers surface that as an error rather than showing
+   * words on invented timings — a wrong highlight is worse than none.
+   */
+  synced: boolean;
+}
+
+const NO_LYRICS: LyricsResult = { lines: [], synced: false };
 
 export function parseLRC(lrcContent: string): LyricLine[] {
   const lines = lrcContent.split('\n');
@@ -50,28 +63,29 @@ export function parseLRC(lrcContent: string): LyricLine[] {
   return lyrics;
 }
 
-function plainTextToLRC(plain: string): LyricLine[] {
+function plainTextToLRC(plain: string): LyricsResult {
   const lines = plain
     .split('\n')
     .map((l) => l.trim())
     .filter((l) => l.length > 0);
 
+  // Some uploads land in `plainLyrics` but already carry [mm:ss.xx] stamps — real
+  // timings, so trust them.
   if (LRC_LINE_REGEX.test(lines[0] || '')) {
-    return parseLRC(plain);
+    return { lines: parseLRC(plain), synced: true };
   }
 
-  const lyrics: LyricLine[] = [];
-
-  for (let i = 0; i < lines.length; i++) {
-    lyrics.push({
-      index: i,
-      timeMs: i * 5000,
+  // Evenly spaced placeholders. `synced: false` means nothing renders these; they
+  // exist so a caller can tell "lyrics exist, unsynced" from "nothing at all".
+  return {
+    lines: lines.map((original, index) => ({
+      index,
+      timeMs: index * 5000,
       durationMs: 5000,
-      original: lines[i],
-    });
-  }
-
-  return lyrics;
+      original,
+    })),
+    synced: false,
+  };
 }
 
 const SAMPLE_LRC_DATABASE: Record<string, string> = {
@@ -102,64 +116,98 @@ const SAMPLE_LRC_DATABASE: Record<string, string> = {
 [01:34.50]So I'ma light it up like dynamite, woah`,
 };
 
-async function fetchFromLRCLIB(artist: string, title: string): Promise<LyricLine[]> {
-  const tryGet = async (a: string, t: string): Promise<LyricLine[]> => {
+async function fetchFromLRCLIB(
+  artist: string,
+  title: string,
+  durationMs?: number,
+  album?: string
+): Promise<LyricsResult> {
+  // An LRC written for a different master drifts against this one, so synced
+  // lyrics are only trustworthy when the runtimes agree. /api/get is already
+  // duration-exact when we know the runtime; search results we check ourselves.
+  const sameRecording = (r: { duration?: number }) =>
+    !durationMs || !r.duration || Math.abs(r.duration * 1000 - durationMs) <= 2000;
+
+  const fromRecord = (rec: LRCLIBResponse): LyricsResult => {
+    if (rec.syncedLyrics && sameRecording(rec)) {
+      return { lines: parseLRC(rec.syncedLyrics), synced: true };
+    }
+    if (rec.plainLyrics) return plainTextToLRC(rec.plainLyrics);
+    // Synced, but for the wrong recording — the words are right, the clock isn't.
+    if (rec.syncedLyrics) return { lines: parseLRC(rec.syncedLyrics), synced: false };
+    return NO_LYRICS;
+  };
+
+  const tryGet = async (a: string, t: string): Promise<LyricsResult> => {
     const params = new URLSearchParams({ artist_name: a, track_name: t });
+    // `duration` (seconds) makes LRCLIB return the LRC synced to THIS recording;
+    // without it, a name-match can be a DIFFERENT master whose section timings
+    // drift. `album_name` sharpens the match. Mirrors the extension's fetch.
+    if (album) params.set('album_name', album);
+    if (durationMs && durationMs > 0) params.set('duration', String(Math.round(durationMs / 1000)));
     const res = await fetch(`https://lrclib.net/api/get?${params.toString()}`, {
       signal: AbortSignal.timeout(15000),
     });
 
+    if (!res.ok) return NO_LYRICS;
+
+    return fromRecord(await res.json());
+  };
+
+  const trySearch = async (params: Record<string, string>): Promise<LRCLIBResponse[]> => {
+    const res = await fetch(`https://lrclib.net/api/search?${new URLSearchParams(params)}`, {
+      signal: AbortSignal.timeout(15000),
+    });
     if (!res.ok) return [];
-
-    const data: LRCLIBResponse = await res.json();
-
-    if (data.syncedLyrics) return parseLRC(data.syncedLyrics);
-    if (data.plainLyrics) return plainTextToLRC(data.plainLyrics);
-    return [];
+    const results = await res.json();
+    return Array.isArray(results) ? results : [];
   };
 
   try {
     const exact = await tryGet(artist, title);
-    if (exact.length > 0) return exact;
+    if (exact.lines.length > 0) return exact;
 
-    const searchParams = new URLSearchParams({ artist_name: artist, track_name: title });
-    const searchRes = await fetch(`https://lrclib.net/api/search?${searchParams.toString()}`, {
-      signal: AbortSignal.timeout(15000),
-    });
+    // LRCLIB ANDs artist_name + track_name, so it finds nothing when the credit
+    // we were handed doesn't match the one it indexed — a featured artist, or the
+    // producer credited first ("Killertunes, Solana" vs LRCLIB's "Solana"). Its
+    // free-text `q` matches either field, so retry that before giving up.
+    let results = await trySearch({ artist_name: artist, track_name: title });
+    if (results.length === 0) results = await trySearch({ q: `${artist} ${title}` });
+    if (results.length === 0) return NO_LYRICS;
 
-    if (searchRes.ok) {
-      const results = await searchRes.json();
-      if (Array.isArray(results) && results.length > 0) {
-        const best = results[0];
-        const searchMatch = await tryGet(best.artistName, best.trackName);
-        if (searchMatch.length > 0) return searchMatch;
+    const best = results.find((r) => r.syncedLyrics && sameRecording(r)) || results[0];
+    const viaGet = await tryGet(best.artistName, best.trackName);
+    if (viaGet.lines.length > 0) return viaGet;
 
-        if (best.syncedLyrics) return parseLRC(best.syncedLyrics);
-        if (best.plainLyrics) return plainTextToLRC(best.plainLyrics);
-      }
-    }
-
-    return [];
+    return fromRecord(best);
   } catch (err) {
     console.warn('[Lyrics] LRCLIB fetch failed:', err);
-    return [];
+    return NO_LYRICS;
   }
 }
 
-export async function fetchLyrics(artist: string, title: string): Promise<LyricLine[]> {
+export async function fetchLyrics(
+  artist: string,
+  title: string,
+  durationMs?: number,
+  album?: string
+): Promise<LyricsResult> {
   const key = `${artist.toLowerCase().trim()}|${title.toLowerCase().trim()}`;
 
-  const lrclibResult = await fetchFromLRCLIB(artist, title);
-  if (lrclibResult.length > 0) {
-    console.log(`[Lyrics] Found on LRCLIB: ${artist} - ${title} (${lrclibResult.length} lines)`);
+  const lrclibResult = await fetchFromLRCLIB(artist, title, durationMs, album);
+  if (lrclibResult.lines.length > 0) {
+    console.log(
+      `[Lyrics] Found on LRCLIB: ${artist} - ${title} ` +
+        `(${lrclibResult.lines.length} lines, synced=${lrclibResult.synced})`
+    );
     return lrclibResult;
   }
 
   if (SAMPLE_LRC_DATABASE[key]) {
     console.log(`[Lyrics] Found in sample DB: ${artist} - ${title}`);
-    return parseLRC(SAMPLE_LRC_DATABASE[key]);
+    return { lines: parseLRC(SAMPLE_LRC_DATABASE[key]), synced: true };
   }
 
   console.log(`[Lyrics] Not found: ${artist} - ${title}`);
-  return [];
+  return NO_LYRICS;
 }

@@ -57,13 +57,18 @@ export function useTranslation() {
     try {
       // Fast "no lyrics" check before committing to the (streaming) translation.
       const lyricsRes = await fetch(
-        `/api/lyrics/search?artist=${encodeURIComponent(track.artist)}&title=${encodeURIComponent(track.title)}`,
+        `/api/lyrics/search?artist=${encodeURIComponent(track.artist)}&title=${encodeURIComponent(track.title)}` +
+          (track.durationMs ? `&durationMs=${track.durationMs}` : '') +
+          (track.album ? `&album=${encodeURIComponent(track.album)}` : ''),
         { signal }
       );
 
       if (!lyricsRes.ok) {
-        void putNegativeCache(track.artist, track.title, lang);
-        setTranslationError("I couldn't find lyrics for this track.");
+        const err = await lyricsRes.json().catch(() => null);
+        // Don't negative-cache NOT_SYNCED — someone may upload an LRC tomorrow, and
+        // re-checking costs one LRCLIB call.
+        if (err?.code !== 'NOT_SYNCED') void putNegativeCache(track.artist, track.title, lang);
+        setTranslationError(err?.error || "I couldn't find lyrics for this track.", err?.code ?? null);
         setLoading(false);
         return;
       }
@@ -89,6 +94,8 @@ export function useTranslation() {
             artist: track.artist,
             title: track.title,
             targetLanguage: lang,
+            durationMs: track.durationMs || undefined,
+            album: track.album || undefined,
             encryptedKey: ek ?? undefined,
           }),
           signal,

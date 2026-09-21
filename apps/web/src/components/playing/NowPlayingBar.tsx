@@ -94,11 +94,11 @@ export function NowPlayingBar() {
           </div>
         </div>
 
-        {/* Controls — settings gear on mobile */}
+        {/* Controls — settings gear (all sizes; it's the only way to theme) */}
         <button
           onClick={() => setSettingsOpen(true)}
           aria-label="Lyrics settings"
-          className="pressable flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-black/[0.05] text-gray-600 transition-colors duration-200 hover:bg-black/[0.08] dark:bg-white/[0.08] dark:text-white/60 sm:hidden"
+          className="pressable flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-black/[0.05] text-gray-600 transition-colors duration-200 hover:bg-black/[0.08] dark:bg-white/[0.08] dark:text-white/60"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="3" />

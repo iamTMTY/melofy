@@ -16,6 +16,9 @@ const TranslateRequestSchema = z.object({
   artist: z.string().min(1),
   title: z.string().min(1),
   targetLanguage: z.string().min(2).max(5),
+  // Duration + album let LRCLIB return the LRC synced to THIS recording (correct timing).
+  durationMs: z.number().positive().optional(),
+  album: z.string().optional(),
   // Optional BYOK key, RSA-OAEP-encrypted for this server's public key.
   encryptedKey: z.string().optional(),
 });
@@ -30,7 +33,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid request', details: parsed.error.issues }, { status: 400 });
   }
 
-  const { artist, title, targetLanguage, encryptedKey } = parsed.data;
+  const { artist, title, targetLanguage, durationMs, album, encryptedKey } = parsed.data;
 
   // Everything that can fail with a real HTTP status happens BEFORE the stream
   // opens (cache lookup, lyrics fetch, gate) — all via the shared policy.
@@ -45,7 +48,14 @@ export async function POST(req: NextRequest) {
 
   if (!cachedLyrics) {
     try {
-      originalLyrics = await fetchLyrics(artist, title);
+      const found = await fetchLyrics(artist, title, durationMs, album);
+      if (found.lines.length > 0 && !found.synced) {
+        return NextResponse.json(
+          { error: "I found lyrics for this track, but they aren't synced.", code: 'NOT_SYNCED' },
+          { status: 422 }
+        );
+      }
+      originalLyrics = found.lines;
     } catch (error: any) {
       return NextResponse.json({ error: error?.message || 'Translation failed' }, { status: 500 });
     }

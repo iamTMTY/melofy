@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useMelofy } from '@/hooks/useMelofy';
 import type { MusicService } from '@/lib/types';
@@ -9,6 +9,11 @@ import { useYouTubeMusicPlayer } from '@/hooks/useYouTubeMusicPlayer';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useLyricSync } from '@/hooks/useLyricSync';
 import { AlbumArtBackground } from '@/components/shared/AlbumArtBackground';
+import { useAdaptiveAccent } from '@/hooks/useAdaptiveAccent';
+import { presetConfig, readingLayout } from '@/lib/theme';
+import { LyricShareModal } from './LyricShareModal';
+import { useEscapeKey } from '@/hooks/useEscapeKey';
+import { MAX_SHARE_LINES, toggleShareSelection, type ShareLine } from '@/lib/shareCard';
 import { LoadingCycler } from './LoadingCycler';
 import { ByokButton } from '@/components/shared/ByokButton';
 import { NowPlayingBar } from './NowPlayingBar';
@@ -43,6 +48,9 @@ export function PlayingView() {
   const { fetchTranslation, dismissError } = useTranslation();
   const { containerRef } = useLyricSync(translatedLyrics);
   const [spotifyToken, setSpotifyToken] = useState<string | null>(null);
+  // Contiguous run of lyric indices picked for sharing (empty = not selecting).
+  const [selected, setSelected] = useState<number[]>([]);
+  const [shareOpen, setShareOpen] = useState(false);
   const lastFetchKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -80,6 +88,7 @@ export function PlayingView() {
     lastFetchKeyRef.current = key;
 
     clearLyrics();
+    setSelected([]);
     fetchTranslation();
   }, [
     playback.track?.artist,
@@ -99,8 +108,67 @@ export function PlayingView() {
   const inactiveSize = FONT_SIZE_MAP_INACTIVE[fs] || 'text-xl';
   const albumArt = track?.albumArtUrl;
 
+  // Look-and-feel comes entirely from the chosen preset + reading priority.
+  const preset = presetConfig(preferences.themePreset);
+  const layout = readingLayout(preferences.readingPriority);
+  const accent = useAdaptiveAccent(albumArt, preset.adaptiveAccent);
+  const alignClass = preset.align === 'left' ? 'text-left' : 'text-center';
+
+  // Which text goes in the big slot vs. underneath — shared by the rendered
+  // lyrics and the share card so a snippet always matches what's on screen.
+  const partsFor = (lyric: (typeof translatedLyrics)[number]): ShareLine => {
+    const primary = layout.lead === 'original' ? lyric.original : lyric.translated || lyric.original;
+    const secondaryRaw = layout.lead === 'original' ? lyric.translated : lyric.original;
+    const show = !!secondaryRaw && secondaryRaw !== primary && (layout.lead === 'original' || showOriginal);
+    return { primary, secondary: show ? secondaryRaw : null };
+  };
+
+  const toggleLine = (idx: number) => setSelected((cur) => toggleShareSelection(cur, idx));
+
+  // Escape backs out of the selection; while the share sheet is up it owns the key.
+  useEscapeKey(selected.length > 0 && !shareOpen, () => {
+    setSelected([]);
+    // Clearing the selection doesn't drop DOM focus, and a focused lyric keeps
+    // the UA focus ring on screen — which reads as "Escape did nothing".
+    (document.activeElement as HTMLElement | null)?.blur();
+  });
+
+  // A selection is always contiguous, so it can be drawn as a single box behind
+  // the lines instead of one box per line (which shows a seam at every join).
+  // Measured from the DOM so the box can animate its top/height as the run grows.
+  const [selectionBox, setSelectionBox] = useState<{ top: number; height: number } | null>(null);
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || selected.length === 0) {
+      setSelectionBox(null);
+      return;
+    }
+    const measure = () => {
+      const nodes = container.querySelectorAll<HTMLElement>('.lyric-line');
+      const first = nodes[selected[0]];
+      const last = nodes[selected[selected.length - 1]];
+      if (!first || !last) return;
+      setSelectionBox({
+        top: first.offsetTop,
+        height: last.offsetTop + last.offsetHeight - first.offsetTop,
+      });
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [selected, translatedLyrics, fs, preset.density, showOriginal, layout.lead, containerRef]);
+
+  // Memoized: this feeds the share modal's render effect, and the view
+  // re-renders on every sync tick — a fresh array each time would redraw the
+  // card continuously.
+  const shareLines = useMemo(
+    () => selected.map((i) => partsFor(translatedLyrics[i])).filter(Boolean),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selected, translatedLyrics, layout.lead, showOriginal]
+  );
+
   return (
-    <AlbumArtBackground imageUrl={albumArt} fixed>
+    <AlbumArtBackground imageUrl={albumArt} fixed variant={preset.background}>
       <div className="flex flex-1 flex-col min-h-0">
         <NowPlayingBar />
 
@@ -173,35 +241,81 @@ export function PlayingView() {
               WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 14%, black 86%, transparent 100%)',
             }}
           >
-            <div className="py-[42vh]">
+            <div className={`relative py-[42vh] ${preset.align === 'left' ? 'mx-auto w-full max-w-3xl' : ''}`}>
+              {selectionBox && (
+                <motion.div
+                  aria-hidden
+                  initial={false}
+                  animate={{ top: selectionBox.top, height: selectionBox.height }}
+                  transition={{ type: 'spring', bounce: 0, duration: 0.3 }}
+                  className="pointer-events-none absolute inset-x-0 rounded-2xl bg-white/10 ring-1 ring-white/25"
+                />
+              )}
               {translatedLyrics.map((lyric, idx) => {
                 const isActive = idx === activeLineIndex;
                 const isPast = idx < activeLineIndex;
 
+                // The "show original" toggle only governs the ORIGINAL line — when
+                // the original is leading, hiding the translation would defeat the point.
+                const { primary, secondary: secondaryRaw } = partsFor(lyric);
+                const showSecondary = !!secondaryRaw;
+                const isSelected = selected.includes(idx);
+
                 return (
                   <motion.div
                     key={lyric.index}
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={isSelected}
+                    onClick={() => toggleLine(idx)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        toggleLine(idx);
+                      }
+                    }}
                     animate={{
-                      opacity: isActive ? 1 : isPast ? 0.55 : 0.2,
+                      // Blurred context needs MORE opacity, not less, or the two
+                      // effects compound into something you can't read at all.
+                      opacity:
+                        isActive || isSelected
+                          ? 1
+                          : preset.focusBlur
+                            ? isPast ? 0.6 : 0.45
+                            : isPast ? 0.55 : 0.2,
+                      filter: preset.focusBlur && !isActive && !isSelected ? 'blur(1.6px)' : 'blur(0px)',
                     }}
                     transition={{ type: 'spring', bounce: 0, duration: 0.4 }}
-                    className="lyric-line px-8 py-5"
+                    className={`lyric-line relative cursor-pointer rounded-2xl px-8 outline-none focus-visible:ring-2 focus-visible:ring-white/70 ${
+                      preset.density === 'compact' ? 'py-3' : 'py-5'
+                    }`}
                   >
-                    <p className={`text-center font-bold leading-snug transition-all duration-400 ${
-                      isActive
-                        ? `${activeSize} text-gray-900 dark:text-white scale-105`
-                        : `${inactiveSize} text-gray-900/55 dark:text-white/55`
-                    }`}>
-                      {lyric.translated || lyric.original}
+                    <p
+                      className={`${alignClass} font-bold leading-snug transition-all duration-400 ${
+                        isActive
+                          ? `${activeSize} text-gray-900 dark:text-white ${preset.align === 'left' ? '' : 'scale-105'}`
+                          : `${inactiveSize} text-gray-900/55 dark:text-white/55`
+                      }`}
+                      style={
+                        isActive && preset.adaptiveAccent
+                          ? { color: accent, textShadow: '0 1px 12px rgba(0, 0, 0, 0.55)' }
+                          : undefined
+                      }
+                    >
+                      {primary}
                     </p>
 
-                    {showOriginal && lyric.translated && lyric.translated !== lyric.original && (
-                      <p className={`text-center leading-snug mt-1.5 transition-all duration-400 ${
-                        isActive
-                          ? 'text-base text-gray-500 dark:text-white/50'
-                          : 'text-sm text-gray-400/40 dark:text-white/20'
-                      }`}>
-                        {lyric.original}
+                    {showSecondary && (
+                      <p
+                        className={`${alignClass} leading-snug mt-1.5 transition-all duration-400 ${
+                          layout.equal
+                            ? `font-bold ${isActive ? `${inactiveSize} text-gray-900/80 dark:text-white/80` : 'text-base text-gray-900/40 dark:text-white/35'}`
+                            : isActive
+                              ? 'text-base text-gray-500 dark:text-white/50'
+                              : 'text-sm text-gray-400/40 dark:text-white/20'
+                        }`}
+                      >
+                        {secondaryRaw}
                       </p>
                     )}
                   </motion.div>
@@ -210,7 +324,48 @@ export function PlayingView() {
             </div>
           </div>
         )}
+
+        {/* Share pill — appears once lines are picked */}
+        {selected.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="pointer-events-none absolute inset-x-0 bottom-6 z-20 flex justify-center px-6"
+          >
+            <div className="pointer-events-auto flex items-center gap-1 rounded-full bg-black/70 p-1 pl-4 text-white shadow-xl backdrop-blur-xl">
+              <span className="text-xs font-medium text-white/70">
+                {selected.length} of {MAX_SHARE_LINES} lines
+              </span>
+              <button
+                onClick={() => setShareOpen(true)}
+                className="ml-2 rounded-full bg-melofy-500 px-4 py-2 text-sm font-semibold active:scale-[0.97] transition-transform duration-150"
+              >
+                Share
+              </button>
+              <button
+                onClick={() => setSelected([])}
+                aria-label="Clear selection"
+                className="flex h-9 w-9 items-center justify-center rounded-full text-white/60 hover:text-white"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+          </motion.div>
+        )}
       </div>
+
+      {shareOpen && track && (
+        <LyricShareModal
+          lines={shareLines}
+          title={track.title}
+          artist={track.artist}
+          albumArtUrl={albumArt}
+          accent={preset.adaptiveAccent ? accent : undefined}
+          onClose={() => setShareOpen(false)}
+        />
+      )}
     </AlbumArtBackground>
   );
 }

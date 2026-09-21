@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import type { NowPlaying } from '@melofy/core';
+import { SUPPORTED_LANGUAGES } from '@melofy/core';
 import { NOW_PLAYING_KEY } from '../../lib/nowplaying';
-import { ENABLED_KEY } from '../../lib/config';
+import { ENABLED_KEY, PREFS_KEY, DEFAULT_PREFS, type Prefs, type FontSize, type ReadingPriority } from '../../lib/config';
 import { clearStoredKey, getStoredKey, setStoredKey } from '../../lib/byok';
 import { track } from '../../lib/analytics';
 
@@ -9,12 +10,15 @@ export function App() {
   const [np, setNp] = useState<NowPlaying | null>(null);
   const [settings, setSettings] = useState(false);
   const [enabled, setEnabled] = useState(true);
+  const [prefs, setPrefs] = useState<Prefs>(DEFAULT_PREFS);
 
   useEffect(() => {
     track('popup_opened');
-    browser.storage.local.get([NOW_PLAYING_KEY, ENABLED_KEY]).then((r) => {
+    browser.storage.local.get([NOW_PLAYING_KEY, ENABLED_KEY, PREFS_KEY]).then((r) => {
       setNp((r[NOW_PLAYING_KEY] as NowPlaying) ?? null);
       setEnabled((r[ENABLED_KEY] as boolean | undefined) ?? true);
+      const p = r[PREFS_KEY] as Partial<Prefs> | undefined;
+      if (p) setPrefs((cur) => ({ ...cur, ...p }));
     });
     const onChanged = (changes: Record<string, { newValue?: unknown }>, area: string) => {
       if (area !== 'local') return;
@@ -24,6 +28,13 @@ export function App() {
     browser.storage.onChanged.addListener(onChanged);
     return () => browser.storage.onChanged.removeListener(onChanged);
   }, []);
+
+  const savePrefs = (next: Partial<Prefs>) =>
+    setPrefs((cur) => {
+      const merged = { ...cur, ...next };
+      void browser.storage.local.set({ [PREFS_KEY]: merged });
+      return merged;
+    });
 
   const toggleEnabled = () => {
     const next = !enabled;
@@ -59,9 +70,9 @@ export function App() {
           {/* Master on/off — unmounts the on-page widget from YouTube Music. */}
           <div className="mb-3 flex items-center justify-between rounded-xl bg-neutral-900 px-3 py-2.5">
             <div className="min-w-0">
-              <p className="text-sm font-medium">Lyrics widget</p>
+              <p className="text-sm font-medium">Melofy lyrics</p>
               <p className="text-[11px] text-neutral-500">
-                {enabled ? 'Showing on YouTube Music' : 'Hidden — turn on to show'}
+                {enabled ? 'Replacing the YouTube Music lyrics tab' : 'Off — YouTube Music’s own lyrics show'}
               </p>
             </div>
             <button
@@ -79,6 +90,81 @@ export function App() {
                 }`}
               />
             </button>
+          </div>
+
+          {/* Lyric display prefs — read live by the on-page lyrics view. */}
+          <div className="mb-3 space-y-2 rounded-xl bg-neutral-900 px-3 py-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Translate</span>
+              <button
+                role="switch"
+                aria-checked={prefs.autoTranslate}
+                aria-label="Toggle translation"
+                onClick={() => savePrefs({ autoTranslate: !prefs.autoTranslate })}
+                className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${prefs.autoTranslate ? 'bg-violet-600' : 'bg-neutral-700'}`}
+              >
+                <span className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${prefs.autoTranslate ? 'translate-x-5' : ''}`} />
+              </button>
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-medium">Language</span>
+              <select
+                value={prefs.targetLanguage}
+                onChange={(e) => savePrefs({ targetLanguage: e.target.value })}
+                className="rounded-lg border border-neutral-800 bg-neutral-950 px-2 py-1 text-sm text-neutral-100 outline-none focus:border-violet-500"
+              >
+                {SUPPORTED_LANGUAGES.map((l) => (
+                  <option key={l.code} value={l.code}>{l.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Font size</span>
+              <div className="flex items-center gap-1">
+                {(['small', 'medium', 'large'] as FontSize[]).map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => savePrefs({ fontSize: s })}
+                    aria-pressed={prefs.fontSize === s}
+                    aria-label={`Font size ${s}`}
+                    className={`rounded-md px-2 py-0.5 font-bold leading-none ${prefs.fontSize === s ? 'bg-neutral-700 text-white' : 'text-neutral-400 hover:text-neutral-100'} ${s === 'small' ? 'text-xs' : s === 'large' ? 'text-lg' : 'text-sm'}`}
+                  >
+                    A
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-medium">Reading</span>
+              <div className="flex items-center gap-1">
+                {([
+                  ['understand', 'Understand'],
+                  ['learn', 'Learn'],
+                  ['both', 'Both'],
+                ] as [ReadingPriority, string][]).map(([key, label]) => (
+                  <button
+                    key={key}
+                    onClick={() => savePrefs({ readingPriority: key })}
+                    aria-pressed={prefs.readingPriority === key}
+                    className={`rounded-md px-2 py-0.5 text-xs font-semibold leading-5 ${prefs.readingPriority === key ? 'bg-neutral-700 text-white' : 'text-neutral-400 hover:text-neutral-100'}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Focus blur</span>
+              <button
+                role="switch"
+                aria-checked={prefs.focusBlur}
+                aria-label="Toggle focus blur"
+                onClick={() => savePrefs({ focusBlur: !prefs.focusBlur })}
+                className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${prefs.focusBlur ? 'bg-violet-600' : 'bg-neutral-700'}`}
+              >
+                <span className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${prefs.focusBlur ? 'translate-x-5' : ''}`} />
+              </button>
+            </div>
           </div>
 
           {np ? (

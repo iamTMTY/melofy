@@ -25,6 +25,9 @@ import type { LyricLine } from '@/lib/types';
  */
 const Schema = z.object({
   lines: z.array(z.string()).min(1),
+  // Real LRC timings, parallel to `lines` (null where a line is unsynced). The
+  // extension holds these client-side; without them we cannot safely cache.
+  timeMs: z.array(z.number().nullable()).optional(),
   targetLanguage: z.string().min(2),
   artist: z.string().optional(),
   title: z.string().optional(),
@@ -54,13 +57,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid request', details: parsed.error.issues }, { status: 400 });
   }
 
-  const { lines, targetLanguage, artist, title, encryptedKey } = parsed.data;
-  const canCache = !!artist && !!title;
+  const { lines, targetLanguage, artist, title, encryptedKey, timeMs } = parsed.data;
+
+  // The cache is SHARED with the web app, which reads `timeMs` straight out of
+  // it to drive the highlight. Entries may only be written when we hold this
+  // track's real timings — a placeholder would desync every future web play.
+  const hasRealTimings =
+    !!timeMs && timeMs.length === lines.length && timeMs.every((t) => typeof t === 'number');
+  const canCache = !!artist && !!title && hasRealTimings;
 
   // 1) Shared cache — a hit is free (no gate, no model call).
   let hash: string | null = null;
-  if (canCache) {
-    const lu = await lookupCache(artist!, title!, targetLanguage);
+  if (artist && title) {
+    const lu = await lookupCache(artist, title, targetLanguage);
     hash = lu.hash;
     if (lu.lyrics) {
       void captureFromRequest(req, 'translation_completed', {
@@ -87,12 +96,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(gate.body, { status: gate.status });
   }
 
-  const lyrics: LyricLine[] = lines.map((original, index) => ({
-    index,
-    timeMs: index * 3000,
-    durationMs: 3000,
-    original,
-  }));
+  // Real timings when the client sent them; otherwise evenly-spaced placeholders
+  // purely so the translator has a well-formed LyricLine[] — these never persist.
+  const lyrics: LyricLine[] = lines.map((original, index) => {
+    const t = hasRealTimings ? (timeMs![index] as number) : index * 3000;
+    const next = hasRealTimings ? (timeMs![index + 1] as number | undefined) : undefined;
+    return { index, timeMs: t, durationMs: next != null ? next - t : 3000, original };
+  });
 
   try {
     const { translatedLyrics, sourceLanguage } = await translateLyrics(

@@ -51,6 +51,12 @@ export interface PlaybackState {
   connected: boolean;
 }
 
+/** Bundled look-and-feel: background, accent source, focus blur, density. */
+export type ThemePreset = 'classic' | 'immersive' | 'minimal' | 'amoled';
+
+/** Which line leads — the translation, the original, or both equally. */
+export type ReadingPriority = 'understand' | 'learn' | 'both';
+
 export interface UserPreferences {
   targetLanguage: string;
   fontSize: 'small' | 'medium' | 'large';
@@ -58,6 +64,8 @@ export interface UserPreferences {
   showOriginalLyrics: boolean;
   showRomanization: boolean;
   linkedService: MusicService | null;
+  themePreset: ThemePreset;
+  readingPriority: ReadingPriority;
 }
 
 /**

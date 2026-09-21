@@ -21,6 +21,8 @@ export interface GetLyricsRes {
 export interface TranslateReq {
   type: 'TRANSLATE';
   lines: string[];
+  /** LRC timings parallel to `lines`; null per line when unsynced. */
+  timeMs?: (number | null)[];
   targetLanguage: string;
   artist?: string;
   title?: string;

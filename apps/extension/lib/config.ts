@@ -42,6 +42,26 @@ export const NOW_PLAYING_KEY = 'melofy:nowplaying';
 // Persisted UI prefs + per-track translation cache live under these keys.
 export const PREFS_KEY = 'melofy:prefs';
 
+export type FontSize = 'small' | 'medium' | 'large';
+/** Which line leads — mirrors the web app's reading priority. */
+export type ReadingPriority = 'understand' | 'learn' | 'both';
+/** Lyric-display prefs, set from the popup, read by the on-page lyrics view. */
+export interface Prefs {
+  targetLanguage: string;
+  autoTranslate: boolean;
+  fontSize: FontSize;
+  readingPriority: ReadingPriority;
+  /** Blur everything but the active line. */
+  focusBlur: boolean;
+}
+export const DEFAULT_PREFS: Prefs = {
+  targetLanguage: DEFAULT_TARGET_LANGUAGE,
+  autoTranslate: true,
+  fontSize: 'medium',
+  readingPriority: 'understand',
+  focusBlur: false,
+};
+
 /** Master on/off for the on-page widget, toggled from the popup. Absent = on
  *  (default), so first-run behavior is unchanged. When false, the content script
  *  unmounts the widget entirely (FAB + panel gone) until re-enabled. */
