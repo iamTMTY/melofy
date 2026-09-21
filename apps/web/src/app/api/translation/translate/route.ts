@@ -40,7 +40,8 @@ export async function POST(req: NextRequest) {
   const { hash, lyrics: cachedLyrics, sourceLanguage: cachedSourceLanguage } = await lookupCache(
     artist,
     title,
-    targetLanguage
+    targetLanguage,
+    { album, durationMs }
   );
 
   let originalLyrics: LyricLine[] = [];

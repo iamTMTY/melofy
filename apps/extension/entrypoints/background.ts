@@ -65,6 +65,8 @@ async function handleTranslate(msg: TranslateReq): Promise<TranslateRes> {
         targetLanguage: msg.targetLanguage,
         artist: msg.artist,
         title: msg.title,
+        album: msg.album,
+        durationMs: msg.durationMs,
         encryptedKey: encryptedKey ?? undefined,
       }),
     });

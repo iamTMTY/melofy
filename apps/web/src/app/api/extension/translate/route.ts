@@ -34,6 +34,10 @@ const Schema = z.object({
   targetLanguage: z.string().min(2),
   artist: z.string().optional(),
   title: z.string().optional(),
+  // Recording identity — the cache is shared with the web player, and two
+  // masters of one song must not collide on the same entry.
+  album: z.string().optional(),
+  durationMs: z.number().positive().optional(),
   encryptedKey: z.string().optional(),
 });
 
@@ -60,7 +64,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid request', details: parsed.error.issues }, { status: 400 });
   }
 
-  const { lines, targetLanguage, artist, title, encryptedKey, timeMs } = parsed.data;
+  const { lines, targetLanguage, artist, title, encryptedKey, timeMs, album, durationMs } = parsed.data;
 
   // The cache is SHARED with the web app, which reads `timeMs` straight out of
   // it to drive the highlight. Entries may only be written when we hold this
@@ -70,6 +74,10 @@ export async function POST(req: NextRequest) {
   // real LRC uploads do carry out-of-order stamps (overlapping/duet lines). Those
   // should still translate; they just must not be persisted for anyone else, and
   // they must never produce a negative durationMs below.
+  //
+  // This is all-or-nothing on purpose: a SINGLE null (one unsynced line) disables
+  // caching for the whole request, because a partially-timed entry in the shared
+  // cache is indistinguishable from a fully-timed one once it is read back.
   const hasRealTimings =
     !!timeMs &&
     timeMs.length === lines.length &&
@@ -81,7 +89,7 @@ export async function POST(req: NextRequest) {
   // 1) Shared cache — a hit is free (no gate, no model call).
   let hash: string | null = null;
   if (artist && title) {
-    const lu = await lookupCache(artist, title, targetLanguage);
+    const lu = await lookupCache(artist, title, targetLanguage, { album, durationMs });
     hash = lu.hash;
     if (lu.lyrics) {
       void captureFromRequest(req, 'translation_completed', {

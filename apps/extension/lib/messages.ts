@@ -26,6 +26,9 @@ export interface TranslateReq {
   targetLanguage: string;
   artist?: string;
   title?: string;
+  /** Recording identity — keeps two masters of a song on separate cache entries. */
+  album?: string;
+  durationMs?: number;
 }
 export interface TranslateRes {
   ok: boolean;

@@ -99,8 +99,13 @@ export function PlayingView() {
     setSelected([]);
     fetchTranslation();
   }, [
+    // Every field the key is built from must be here. It re-runs today anyway
+    // because `fetchTranslation` changes identity with `playback`, but that is
+    // incidental — narrowing that hook's deps would silently break refetching.
     playback.track?.artist,
     playback.track?.title,
+    playback.track?.album,
+    playback.track?.durationMs,
     preferences.targetLanguage,
     fetchTranslation,
     clearLyrics,

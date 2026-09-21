@@ -208,16 +208,33 @@ async function main() {
   fs.writeFileSync(DATASET, JSON.stringify(merged, null, 2));
 
   // --- review sheets -------------------------------------------------------
+  // NEVER clobber a sheet that exists: it may hold hours of a reviewer's work,
+  // and a half-filled sheet is not marked `reviewed` anywhere, so checking the
+  // dataset flag alone would still destroy in-progress annotation. Overwriting
+  // requires an explicit --force.
+  const force = process.argv.includes('--force');
   fs.mkdirSync(GOLD_DIR, { recursive: true });
+  let sheetsWritten = 0;
+  const sheetsKept: string[] = [];
   for (const e of built) {
     const song = SONGS.find((s) => `gold-${s.code}-${slug(s.artist)}-${slug(s.title)}` === e.id)!;
-    fs.writeFileSync(path.join(GOLD_DIR, `${e.id}.txt`), reviewSheet(e, song, model));
+    const file = path.join(GOLD_DIR, `${e.id}.txt`);
+    if (fs.existsSync(file) && !force) {
+      sheetsKept.push(e.id);
+      continue;
+    }
+    fs.writeFileSync(file, reviewSheet(e, song, model));
+    sheetsWritten++;
   }
 
   console.log('\n=================== GOLD SET ===================');
   console.log(`songs built   : ${built.length}/${SONGS.length}`);
   console.log(`dataset.json  : +${added} new, ${updated} updated, ${skipped} skipped (already reviewed) → ${merged.length} total`);
-  console.log(`review sheets : ${built.length} → dataset/gold/`);
+  console.log(`review sheets : ${sheetsWritten} written → dataset/gold/`);
+  if (sheetsKept.length) {
+    console.log(`                ${sheetsKept.length} kept (already on disk; --force to overwrite)`);
+    for (const id of sheetsKept) console.log(`                  · ${id}.txt`);
+  }
   const lines = built.reduce((n, e) => n + e.source_lines.length, 0);
   console.log(`source lines  : ${lines}`);
   if (failures.length) {

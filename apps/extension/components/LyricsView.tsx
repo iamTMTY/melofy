@@ -92,6 +92,8 @@ export function LyricsView() {
         targetLanguage: prefs.targetLanguage,
         artist: track.artist,
         title: track.title,
+        album: track.album,
+        durationMs: track.durationMs,
       });
       if (cancelled) return;
       if (res.ok && res.translated) {
