@@ -83,7 +83,15 @@ export function PlayingView() {
     const track = playback.track;
     if (!track) return;
 
-    const key = `${track.artist}|||${track.title}|||${preferences.targetLanguage}`;
+    // Album + duration are part of the identity: they pick the master whose LRC
+    // we fetch, so a different recording of the same song must refetch.
+    const key = [
+      track.artist,
+      track.title,
+      track.album ?? '',
+      track.durationMs ?? '',
+      preferences.targetLanguage,
+    ].join('|||');
     if (lastFetchKeyRef.current === key) return;
     lastFetchKeyRef.current = key;
 

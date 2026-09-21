@@ -12,7 +12,11 @@ import type { LrcLine } from '../lib/lrc';
 // Highlight slightly BEFORE the timestamp to cancel interpolation+paint latency
 // so the active line lands on the beat. Tunable.
 const SYNC_LOOKAHEAD_MS = 200;
-const trackKey = (artist: string, title: string) => `${artist} — ${title}`;
+// Recording identity, not just song identity: the lyrics lookup keys off album +
+// duration to pick the right master, so two recordings of the same song must be
+// two different keys or the previous one's timings stay on screen.
+const trackKey = (t: { artist: string; title: string; album?: string; durationMs?: number }) =>
+  `${t.artist} — ${t.title} — ${t.album ?? ''} — ${t.durationMs ?? ''}`;
 
 export function LyricsView() {
   const np = useNowPlaying(150);
@@ -25,7 +29,7 @@ export function LyricsView() {
   const activeRef = useRef<HTMLDivElement>(null);
 
   const track = np?.track;
-  const key = track ? trackKey(track.artist, track.title) : '';
+  const key = track ? trackKey(track) : '';
 
   // Prefs: load + stay in sync with popup edits.
   useEffect(() => {
@@ -98,7 +102,14 @@ export function LyricsView() {
         setStatus('error');
         setError(res.error || 'Something went wrong translating this song.');
       }
-    })();
+    })().catch((err) => {
+      // Same hole the lyrics effect had: a rejected message (sleeping MV3 worker,
+      // network drop) would otherwise leave the view stuck on "translating".
+      if (cancelled) return;
+      console.error('[Melofy] translation request failed:', err);
+      setStatus('error');
+      setError("I couldn't reach Melofy to translate this song.");
+    });
     return () => { cancelled = true; };
   }, [key, lines, prefs.autoTranslate, prefs.targetLanguage]);
 

@@ -135,3 +135,36 @@ describe('unsynced results never end the search', () => {
     expect(res.lines.map((l) => l.original)).toEqual(['exact one', 'exact two']);
   });
 });
+
+// Regression (review #3): when we know the runtime, a record that omits its own
+// duration is unverified — it must not be presented as synced.
+describe('sameRecording treats a missing duration as unverified', () => {
+  it('does not mark a duration-less synced record as synced', async () => {
+    mockLrclib({
+      'api/get': {
+        artistName: 'Some Artist',
+        trackName: 'Some Song',
+        // no `duration` field at all
+        syncedLyrics: '[00:05.00]line one\n[00:09.00]line two',
+      },
+      'api/search': [],
+    });
+
+    const res = await fetchLyrics('Some Artist', 'Some Song', 200_000);
+    expect(res.lines.length).toBe(2);
+    expect(res.synced).toBe(false);
+  });
+
+  it('still trusts it when we have no runtime to compare against', async () => {
+    mockLrclib({
+      'api/get': {
+        artistName: 'Some Artist',
+        trackName: 'Some Song',
+        syncedLyrics: '[00:05.00]line one\n[00:09.00]line two',
+      },
+    });
+
+    const res = await fetchLyrics('Some Artist', 'Some Song');
+    expect(res.synced).toBe(true);
+  });
+});

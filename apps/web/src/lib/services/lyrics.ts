@@ -125,8 +125,11 @@ async function fetchFromLRCLIB(
   // An LRC written for a different master drifts against this one, so synced
   // lyrics are only trustworthy when the runtimes agree. /api/get is already
   // duration-exact when we know the runtime; search results we check ourselves.
+  // When we know this track's runtime, a record that doesn't state its own is
+  // UNVERIFIED, not a match — trusting it is how an LRC for another master gets
+  // shown as synced. Such records can still surface as an unsynced fallback.
   const sameRecording = (r: { duration?: number }) =>
-    !durationMs || !r.duration || Math.abs(r.duration * 1000 - durationMs) <= 2000;
+    !durationMs ? true : r.duration != null && Math.abs(r.duration * 1000 - durationMs) <= 2000;
 
   const fromRecord = (rec: LRCLIBResponse): LyricsResult => {
     if (rec.syncedLyrics && sameRecording(rec)) {
