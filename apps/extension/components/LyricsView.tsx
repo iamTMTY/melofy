@@ -60,6 +60,13 @@ export function LyricsView() {
         setStatus('error');
         setError(res.error || "I couldn't find lyrics for this track.");
       }
+    }).catch((err) => {
+      // A sleeping/erroring MV3 worker rejects the message instead of replying.
+      // Without this the view sits on "Loading lyrics…" forever with no retry.
+      if (cancelled) return;
+      console.error('[Melofy] lyrics request failed:', err);
+      setStatus('error');
+      setError("I couldn't reach Melofy to load lyrics. Try playing the track again.");
     });
     return () => { cancelled = true; };
   }, [key]);

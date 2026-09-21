@@ -83,3 +83,55 @@ describe('fetchLyrics LRCLIB fallback', () => {
     expect(await fetchLyrics('Nobody', 'Nothing')).toEqual({ lines: [], synced: false });
   });
 });
+
+// Regression (Mira review): a plain-only or wrong-master EXACT hit used to be
+// returned immediately, which hid a properly synced upload sitting in search.
+describe('unsynced results never end the search', () => {
+  it('prefers a synced search result over a plain-only exact hit', async () => {
+    mockLrclib({
+      'api/get?artist_name=King+Sunny+Ade&track_name=Merciful+God': {
+        artistName: 'King Sunny Ade',
+        trackName: 'Merciful God',
+        duration: 431,
+        syncedLyrics: null,
+        plainLyrics: 'plain one\nplain two',
+      },
+      'api/search': [
+        {
+          artistName: 'King Sunny Ade',
+          trackName: 'Merciful God (Remaster)',
+          duration: 431,
+          syncedLyrics: '[00:10.00]synced one\n[00:14.00]synced two',
+        },
+      ],
+      'api/get?artist_name=King+Sunny+Ade&track_name=Merciful+God+%28Remaster%29': {
+        artistName: 'King Sunny Ade',
+        trackName: 'Merciful God (Remaster)',
+        duration: 431,
+        syncedLyrics: '[00:10.00]synced one\n[00:14.00]synced two',
+      },
+    });
+
+    const res = await fetchLyrics('King Sunny Ade', 'Merciful God', 431_000);
+    expect(res.synced).toBe(true);
+    expect(res.lines[0].original).toBe('synced one');
+    expect(res.lines[0].timeMs).toBe(10_000);
+  });
+
+  it('still returns the exact plain hit when nothing synced exists anywhere', async () => {
+    mockLrclib({
+      'api/get?artist_name=Teledalase&track_name=Oyeku': {
+        artistName: 'Teledalase',
+        trackName: 'Oyeku',
+        duration: 252,
+        syncedLyrics: null,
+        plainLyrics: 'exact one\nexact two',
+      },
+      'api/search': [],
+    });
+
+    const res = await fetchLyrics('Teledalase', 'Oyeku', 252_000);
+    expect(res.synced).toBe(false);
+    expect(res.lines.map((l) => l.original)).toEqual(['exact one', 'exact two']);
+  });
+});

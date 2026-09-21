@@ -27,7 +27,10 @@ const Schema = z.object({
   lines: z.array(z.string()).min(1),
   // Real LRC timings, parallel to `lines` (null where a line is unsynced). The
   // extension holds these client-side; without them we cannot safely cache.
-  timeMs: z.array(z.number().nullable()).optional(),
+  // This endpoint is PUBLIC, so the bounds are a trust boundary, not a nicety:
+  // a negative or non-finite timestamp written into the SHARED cache would
+  // desync the web player for every later listener of that track.
+  timeMs: z.array(z.number().finite().nonnegative().nullable()).optional(),
   targetLanguage: z.string().min(2),
   artist: z.string().optional(),
   title: z.string().optional(),
@@ -62,8 +65,17 @@ export async function POST(req: NextRequest) {
   // The cache is SHARED with the web app, which reads `timeMs` straight out of
   // it to drive the highlight. Entries may only be written when we hold this
   // track's real timings — a placeholder would desync every future web play.
+  //
+  // Monotonicity is checked here rather than in the schema because a handful of
+  // real LRC uploads do carry out-of-order stamps (overlapping/duet lines). Those
+  // should still translate; they just must not be persisted for anyone else, and
+  // they must never produce a negative durationMs below.
   const hasRealTimings =
-    !!timeMs && timeMs.length === lines.length && timeMs.every((t) => typeof t === 'number');
+    !!timeMs &&
+    timeMs.length === lines.length &&
+    timeMs.every(
+      (t, i) => typeof t === 'number' && (i === 0 || t >= (timeMs[i - 1] as number))
+    );
   const canCache = !!artist && !!title && hasRealTimings;
 
   // 1) Shared cache — a hit is free (no gate, no model call).

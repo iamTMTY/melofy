@@ -163,9 +163,21 @@ async function fetchFromLRCLIB(
     return Array.isArray(results) ? results : [];
   };
 
+  // Only a SYNCED result ends the search. Unsynced words are banked as a
+  // fallback instead of returned, so a plain-only (or wrong-master) exact hit
+  // can't hide a properly synced upload indexed under a different credit.
+  // Banked in priority order — the exact artist/title/duration match first.
+  const fallbacks: LyricsResult[] = [];
+  const take = (r: LyricsResult): LyricsResult | null => {
+    if (r.lines.length === 0) return null;
+    if (r.synced) return r;
+    fallbacks.push(r);
+    return null;
+  };
+
   try {
-    const exact = await tryGet(artist, title);
-    if (exact.lines.length > 0) return exact;
+    const exact = take(await tryGet(artist, title));
+    if (exact) return exact;
 
     // LRCLIB ANDs artist_name + track_name, so it finds nothing when the credit
     // we were handed doesn't match the one it indexed — a featured artist, or the
@@ -173,13 +185,17 @@ async function fetchFromLRCLIB(
     // free-text `q` matches either field, so retry that before giving up.
     let results = await trySearch({ artist_name: artist, track_name: title });
     if (results.length === 0) results = await trySearch({ q: `${artist} ${title}` });
-    if (results.length === 0) return NO_LYRICS;
 
-    const best = results.find((r) => r.syncedLyrics && sameRecording(r)) || results[0];
-    const viaGet = await tryGet(best.artistName, best.trackName);
-    if (viaGet.lines.length > 0) return viaGet;
+    if (results.length > 0) {
+      const best = results.find((r) => r.syncedLyrics && sameRecording(r)) || results[0];
+      const viaGet = take(await tryGet(best.artistName, best.trackName));
+      if (viaGet) return viaGet;
 
-    return fromRecord(best);
+      const fromBest = take(fromRecord(best));
+      if (fromBest) return fromBest;
+    }
+
+    return fallbacks[0] ?? NO_LYRICS;
   } catch (err) {
     console.warn('[Lyrics] LRCLIB fetch failed:', err);
     return NO_LYRICS;
