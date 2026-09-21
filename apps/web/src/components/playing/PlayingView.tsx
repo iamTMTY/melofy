@@ -175,7 +175,9 @@ export function PlayingView() {
   // re-renders on every sync tick — a fresh array each time would redraw the
   // card continuously.
   const shareLines = useMemo(
-    () => selected.map((i) => partsFor(translatedLyrics[i])).filter(Boolean),
+    // Filter BEFORE mapping: a selection made against a previous (longer) lyric
+    // set would otherwise hand partsFor an undefined line and crash the view.
+    () => selected.filter((i) => translatedLyrics[i]).map((i) => partsFor(translatedLyrics[i])),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [selected, translatedLyrics, layout.lead, showOriginal]
   );

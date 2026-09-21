@@ -14,12 +14,18 @@ export function requestTranslation(req: Omit<TranslateReq, 'type'>): Promise<Tra
 // --- per-track translation cache (browser.storage.local) --------------------
 // Avoids re-calling (and re-paying for) translation when a song replays.
 
+export interface CacheRecording {
+  album?: string;
+  durationMs?: number;
+}
+
 export async function getCachedTranslation(
   artist: string,
   title: string,
-  lang: string
+  lang: string,
+  recording?: CacheRecording
 ): Promise<string[] | null> {
-  const key = translationCacheKey(artist, title, lang);
+  const key = translationCacheKey(artist, title, lang, recording);
   const r = await browser.storage.local.get(key);
   const v = r[key] as { translated: string[] } | undefined;
   return v?.translated ?? null;
@@ -29,8 +35,9 @@ export async function setCachedTranslation(
   artist: string,
   title: string,
   lang: string,
-  translated: string[]
+  translated: string[],
+  recording?: CacheRecording
 ): Promise<void> {
-  const key = translationCacheKey(artist, title, lang);
+  const key = translationCacheKey(artist, title, lang, recording);
   await browser.storage.local.set({ [key]: { translated, at: Date.now() } });
 }

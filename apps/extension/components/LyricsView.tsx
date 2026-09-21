@@ -80,7 +80,8 @@ export function LyricsView() {
     if (!track || !prefs.autoTranslate || lines.length === 0) return;
     let cancelled = false;
     (async () => {
-      const cached = await getCachedTranslation(track.artist, track.title, prefs.targetLanguage);
+      const recording = { album: track.album, durationMs: track.durationMs };
+      const cached = await getCachedTranslation(track.artist, track.title, prefs.targetLanguage, recording);
       if (cancelled) return;
       if (cached && cached.length === lines.length) { setTranslated(cached); return; }
       setStatus('translating');
@@ -99,7 +100,7 @@ export function LyricsView() {
       if (res.ok && res.translated) {
         setTranslated(res.translated);
         setStatus('idle');
-        void setCachedTranslation(track.artist, track.title, prefs.targetLanguage, res.translated);
+        void setCachedTranslation(track.artist, track.title, prefs.targetLanguage, res.translated, recording);
       } else {
         setStatus('error');
         setError(res.error || 'Something went wrong translating this song.');

@@ -60,6 +60,8 @@ export default defineContentScript({
       }
     };
     const restoreNative = () => {
+      // Elements YTM has since discarded are harmless to touch; the list is
+      // always emptied so a stale reference can never keep a node hidden.
       for (const el of hidden) el.style.display = '';
       hidden = [];
     };
@@ -75,9 +77,12 @@ export default defineContentScript({
       if (!want) {
         // Lyrics tab inactive (or disabled): pull our view out, restore native.
         // The React root stays alive (not unmounted) so its state is preserved.
-        if (created && ui.shadowHost.isConnected) {
+        if (created) {
+          // Restore FIRST and unconditionally: if YTM tore out our host on its
+          // own, `isConnected` is already false, and gating on it would leave
+          // the native lyrics stuck at display:none — a blank tab.
           restoreNative();
-          ui.shadowHost.remove();
+          if (ui.shadowHost.isConnected) ui.shadowHost.remove();
         }
         return;
       }
