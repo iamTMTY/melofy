@@ -47,6 +47,13 @@ export function LyricsView() {
   }, []);
 
   // Fetch lyrics on track change.
+  //
+  // NOTE: requestLyrics() is a runtime MESSAGE to background.ts, which fetches
+  // lrclib.net directly and answers { ok, lines, synced }. It never touches the
+  // web app's /api/lyrics/search, so that route's 422-on-unsynced contract does
+  // not apply here: plain-text tracks arrive as { ok: true, synced: false } and
+  // render dimmed with the "Unsynced lyrics" note below. The two surfaces differ
+  // on purpose.
   useEffect(() => {
     if (!track) return;
     let cancelled = false;
