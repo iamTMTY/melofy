@@ -63,6 +63,16 @@ jobs:
           script: |
             set -e
             cd ~/melofy
-            docker compose --env-file .env.production -f docker-compose.app.yml pull web
+            # Free space BEFORE pulling: each deploy adds a ~200MB layer and a
+            # full disk truncates the download, which surfaces as
+            # "wrong diff id calculated on extraction" rather than ENOSPC.
+            docker image prune -f
+            # A corrupt partial layer (interrupted download, IO hiccup) fails the
+            # integrity check once and re-downloads cleanly — so retry the pull.
+            for i in 1 2 3; do
+              docker compose --env-file .env.production -f docker-compose.app.yml pull web && break
+              echo "pull attempt $i failed — retrying in 15s"; sleep 15
+              [ "$i" = 3 ] && exit 1
+            done
             docker compose --env-file .env.production -f docker-compose.app.yml up -d
             docker image prune -f
