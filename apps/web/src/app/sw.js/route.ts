@@ -37,8 +37,6 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/ingest/')) return;
 
-  // Pages: network first so deploys show up immediately; cached copy (or the
-  // root shell) only when offline. Only clean URLs are ever written to cache.
   if (req.mode === 'navigate') {
     event.respondWith(
       fetch(req)
@@ -54,8 +52,6 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Build assets (content-hashed), fonts and icons: cache first within a build.
-  // Safe because the whole cache is dropped when VERSION changes on deploy.
   if (isStatic(url.pathname)) {
     event.respondWith(
       caches.match(req).then(
@@ -71,7 +67,6 @@ self.addEventListener('fetch', (event) => {
       )
     );
   }
-  // Everything else falls through to the network untouched.
 });
 `;
 
@@ -79,8 +74,6 @@ export function GET() {
   return new Response(SW, {
     headers: {
       'Content-Type': 'application/javascript; charset=utf-8',
-      // Always re-fetched: a cached sw.js would pin users to an old shell for
-      // up to 24h after a deploy.
       'Cache-Control': 'no-cache, no-store, must-revalidate',
       'Service-Worker-Allowed': '/',
     },

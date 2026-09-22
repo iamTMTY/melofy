@@ -53,12 +53,6 @@ export function summarize(results: ResultRow[], models: string[]) {
   return { perModel, perLanguage };
 }
 
-/**
- * Runs the eval: every (song × model) job translates via the product endpoint,
- * then a reference-anchored judge scores it. Emits a `progress` event per job so
- * the UI fills in live. A small concurrency pool keeps it brisk without hammering
- * the app or the judge API.
- */
 export async function runEval(
   cfg: RunConfig,
   emit: (ev: RunEvent) => void,
@@ -124,8 +118,6 @@ export async function runEval(
       done += 1;
       emit({ type: 'progress', row, done, total });
 
-      // Mirror the job to Langfuse (no-op if unconfigured). Fire-and-forget so
-      // telemetry never slows the run or blocks the next job.
       void recordJob({
         runName,
         model,

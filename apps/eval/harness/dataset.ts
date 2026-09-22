@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import type { DatasetEntry } from './types.ts';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const DATA = path.resolve(HERE, '../dataset/dataset.json'); // apps/eval/harness -> apps/eval/dataset
+const DATA = path.resolve(HERE, '../dataset/dataset.json');
 
 export function loadDataset(): DatasetEntry[] {
   if (!fs.existsSync(DATA)) {

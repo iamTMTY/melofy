@@ -2,9 +2,6 @@ import { describe, it, expect } from 'vitest';
 import crypto from 'node:crypto';
 import { getPublicKeyPem, decryptApiKey } from './serverKeys';
 
-// The BYOK transit-encryption contract: a client encrypts the user's key with the
-// server's published public key (RSA-OAEP, SHA-256); only the server can decrypt.
-// This drives the exact roundtrip with Node's crypto standing in for the browser.
 describe('BYOK transit crypto (RSA-OAEP SHA-256)', () => {
   it('publishes an SPKI public key PEM', () => {
     expect(getPublicKeyPem()).toContain('BEGIN PUBLIC KEY');

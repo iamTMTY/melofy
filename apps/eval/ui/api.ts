@@ -1,5 +1,3 @@
-// Slim client-side mirrors of the harness JSON shapes (kept local so the UI
-// bundle never imports server code).
 export interface AxisAvg {
   fidelity: number | null;
   fluency: number | null;
@@ -86,7 +84,6 @@ export const getModels = (refresh = false) =>
 export const getRuns = () => getJSON<{ runs: RunListItem[] }>('/api/runs');
 export const getRun = (id: string) => getJSON<RunSummary>(`/api/runs/${id}`);
 
-// POST /api/run and stream NDJSON events to `onEvent` until the stream ends.
 export async function startRun(
   body: Partial<RunConfig>,
   onEvent: (ev: RunEvent) => void,
@@ -113,9 +110,7 @@ export async function startRun(
       if (line.trim()) {
         try {
           onEvent(JSON.parse(line) as RunEvent);
-        } catch {
-          /* ignore partial/garbage */
-        }
+        } catch {}
       }
     }
   }

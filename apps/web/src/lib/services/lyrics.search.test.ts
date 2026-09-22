@@ -1,13 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { fetchLyrics } from './lyrics';
 
-// Two things are pinned here:
-//  1. LRCLIB ANDs artist_name + track_name, so the credit YouTube Music hands us
-//     ("Killertunes, Solana") misses what LRCLIB indexed ("Solana") and used to
-//     dead-end at 404. The free-text `q` retry rescues it.
-//  2. `synced` must be false unless the timings really belong to this recording —
-//     callers show an error rather than words on invented timings.
-
 function mockLrclib(routes: Record<string, unknown>) {
   const calls: string[] = [];
   vi.stubGlobal('fetch', async (url: string) => {
@@ -32,7 +25,7 @@ describe('fetchLyrics LRCLIB fallback', () => {
     const { lines, synced } = await fetchLyrics('Killertunes, Solana', 'Okunkun', 159000);
 
     expect(lines.map((l) => l.original)).toEqual(['one', 'two']);
-    expect(synced).toBe(false); // plain text — caller errors instead of faking timings
+    expect(synced).toBe(false);
     expect(calls.some((u) => u.includes('/api/search?q='))).toBe(true);
   });
 
@@ -60,7 +53,6 @@ describe('fetchLyrics LRCLIB fallback', () => {
       ],
     });
 
-    // A 240s LRC against a 159s track drifts — the bad-sync bug.
     expect(await fetchLyrics('A', 'T', 159000)).toMatchObject({ synced: false });
   });
 
@@ -84,8 +76,6 @@ describe('fetchLyrics LRCLIB fallback', () => {
   });
 });
 
-// Regression (Mira review): a plain-only or wrong-master EXACT hit used to be
-// returned immediately, which hid a properly synced upload sitting in search.
 describe('unsynced results never end the search', () => {
   it('prefers a synced search result over a plain-only exact hit', async () => {
     mockLrclib({
@@ -136,15 +126,12 @@ describe('unsynced results never end the search', () => {
   });
 });
 
-// Regression (review #3): when we know the runtime, a record that omits its own
-// duration is unverified — it must not be presented as synced.
 describe('sameRecording treats a missing duration as unverified', () => {
   it('does not mark a duration-less synced record as synced', async () => {
     mockLrclib({
       'api/get': {
         artistName: 'Some Artist',
         trackName: 'Some Song',
-        // no `duration` field at all
         syncedLyrics: '[00:05.00]line one\n[00:09.00]line two',
       },
       'api/search': [],
@@ -169,20 +156,14 @@ describe('sameRecording treats a missing duration as unverified', () => {
   });
 });
 
-// Regression (Greptile P1): the free-text retry used to run only when the scoped
-// search returned NOTHING. A plain-only or wrong-master hit under the supplied
-// credit therefore blocked it, defeating the "Killertunes, Solana" fix whenever
-// LRCLIB had anything at all under that credit.
 describe('free-text search runs when the scoped search finds only unsynced results', () => {
   const SYNCED = '[00:10.00]synced one\n[00:14.00]synced two';
 
   it('reaches the synced upload under the credit LRCLIB actually indexed', async () => {
     const calls = mockLrclib({
-      // viaGet for the record the q search surfaces
       'api/get?artist_name=Solana&track_name=Okunkun': {
         id: 2, artistName: 'Solana', trackName: 'Okunkun', duration: 159, syncedLyrics: SYNCED, plainLyrics: null,
       },
-      // scoped search: something exists under the supplied credit, but plain-only
       'api/search?artist_name=': [
         { id: 1, artistName: 'Killertunes', trackName: 'Okunkun', duration: 159, syncedLyrics: null, plainLyrics: 'plain one\nplain two' },
       ],
@@ -213,9 +194,6 @@ describe('free-text search runs when the scoped search finds only unsynced resul
   });
 });
 
-// Regression (review): a synced record already in hand from search was fetched
-// AGAIN via /api/get before being read, and a network failure on that redundant
-// call threw the outer catch — returning NO_LYRICS for a track we had lyrics for.
 describe('search results are read before any further network call', () => {
   it('returns the in-hand synced record even when /api/get is unreachable', async () => {
     const SYNCED = '[00:10.00]synced one\n[00:14.00]synced two';
@@ -238,7 +216,6 @@ describe('search results are read before any further network call', () => {
     const res = await fetchLyrics('Nobody', 'Okunkun', 159_000);
     expect(res.synced).toBe(true);
     expect(res.lines[0].original).toBe('synced one');
-    // The synced record was used directly — no redundant /api/get for it.
     expect(calls.some((u) => u.includes('api/get?artist_name=Solana'))).toBe(false);
   });
 
@@ -251,7 +228,7 @@ describe('search results are read before any further network call', () => {
           json: async () => ({ id: 1, artistName: 'Teledalase', trackName: 'Oyeku', duration: 252, syncedLyrics: null, plainLyrics: 'exact one\nexact two' }),
         };
       }
-      throw new TypeError('network down'); // both search calls fail
+      throw new TypeError('network down');
     });
 
     const res = await fetchLyrics('Teledalase', 'Oyeku', 252_000);

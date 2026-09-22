@@ -1,9 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { translateErrorBody } from './translationApi';
 
-// Maps an internal/provider error to the client-facing status + body. A provider
-// rate-limit (429) must surface as the friendly quota message, everything else as
-// a generic 500 that never leaks internals.
 describe('translateErrorBody', () => {
   it('maps a provider 429 (status field) to RATE_LIMIT 429', () => {
     const { status, body } = translateErrorBody({ status: 429, message: 'Rate limited' });

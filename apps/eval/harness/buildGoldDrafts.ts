@@ -1,15 +1,3 @@
-// Fetch lyrics (LRCLIB) for a hand-picked gold-set song list and produce Gemini
-// DRAFT English translations for human reviewers to correct into gold references.
-//
-//   pnpm --filter @melofy/eval exec tsx harness/buildGoldDrafts.ts
-//
-// Writes apps/eval/dataset/gold-drafts.json (DatasetEntry[], reviewed:false) for
-// the songs whose lyrics were found, and prints a coverage report (found vs
-// missing) so you know which songs to source lyrics for manually.
-//
-// NOTE: LRCLIB is crowd-sourced and sparse on indigenous African music — expect
-// misses for traditional Hausa/Igbo. For a miss, paste the lyrics and we'll draft
-// those separately.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -26,32 +14,25 @@ interface Song {
   title: string;
 }
 
-// Primary picks from the provided list. Feature credits trimmed to the primary
-// artist (how LRCLIB indexes). Yoruba is short (list only named Brymo tracks).
 const SONGS: Song[] = [
-  // Yoruba (short — needs ~2 more to reach 5)
   { language: 'Yoruba', code: 'yo', artist: 'Brymo', title: 'Gbegiri' },
   { language: 'Yoruba', code: 'yo', artist: 'Brymo', title: 'Obej Kun' },
   { language: 'Yoruba', code: 'yo', artist: 'Brymo', title: 'Good Morning' },
-  // Swahili
   { language: 'Swahili', code: 'sw', artist: 'Alikiba', title: 'Mfalme' },
   { language: 'Swahili', code: 'sw', artist: 'Jux', title: 'Acha Aisee' },
   { language: 'Swahili', code: 'sw', artist: 'Alikiba', title: 'Utatubu' },
   { language: 'Swahili', code: 'sw', artist: 'Alikiba', title: 'Mwana' },
   { language: 'Swahili', code: 'sw', artist: 'Jay Melody', title: 'Nakupenda' },
-  // Hausa
   { language: 'Hausa', code: 'ha', artist: 'Hamisu Breaker', title: 'Jaruma' },
   { language: 'Hausa', code: 'ha', artist: 'Hamisu Breaker', title: 'Bani da Damuwa' },
   { language: 'Hausa', code: 'ha', artist: 'Nomiis Gee', title: 'Marubuci' },
   { language: 'Hausa', code: 'ha', artist: 'Dabo Daprof', title: 'Dan Arewa' },
   { language: 'Hausa', code: 'ha', artist: 'Moreh', title: 'Mai Ango' },
-  // Igbo
   { language: 'Igbo', code: 'ig', artist: 'Oliver De Coque', title: 'Onye Isi Mmanya' },
   { language: 'Igbo', code: 'ig', artist: 'Flavour', title: 'Nkolika' },
   { language: 'Igbo', code: 'ig', artist: 'Osita Osadebe', title: 'Anyi Bu Ndi Igbo' },
   { language: 'Igbo', code: 'ig', artist: 'Mike Ejeagha', title: 'Ochinga' },
   { language: 'Igbo', code: 'ig', artist: 'Phyno', title: 'Abulo' },
-  // Nigerian Pidgin
   { language: 'Nigerian Pidgin', code: 'pcm', artist: 'Olu Maintain', title: 'Yahooze' },
   { language: 'Nigerian Pidgin', code: 'pcm', artist: 'Olamide', title: 'Wo' },
   { language: 'Nigerian Pidgin', code: 'pcm', artist: 'Portable', title: 'Zazu Zeh' },
@@ -63,8 +44,6 @@ const deaccent = (s: string) => s.normalize('NFKD').replace(/\p{Diacritic}/gu, '
 const stripTimecode = (l: string) => l.replace(/^\[\d{1,2}:\d{2}(?:\.\d{1,3})?\]\s*/, '').trim();
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-// Retry on 429 / 5xx (rate limits, transient overload) with backoff. Returns the
-// final Response (even a non-retryable 4xx like 404) or null if unreachable.
 async function fetchRetry(url: string, init: RequestInit = {}, tries = 5): Promise<Response | null> {
   for (let a = 0; a < tries; a++) {
     try {
@@ -90,13 +69,12 @@ async function fetchLyrics(song: Song): Promise<Found | null> {
     const raw = d?.syncedLyrics || d?.plainLyrics;
     if (!raw) return null;
     const lines = String(raw).split('\n').map(stripTimecode).filter(Boolean);
-    if (lines.length < 4) return null; // too short to be real lyrics
+    if (lines.length < 4) return null;
     return { lines, synced: !!d.syncedLyrics, matchedArtist: d.artistName || song.artist, matchedTitle: d.trackName || song.title };
   };
 
   const H = { headers: { 'User-Agent': 'melofy-eval-gold-draft (github.com/melofy)' } };
 
-  // 1) exact get
   {
     const p = new URLSearchParams({ artist_name: song.artist, track_name: song.title });
     const r = await fetchRetry(`https://lrclib.net/api/get?${p}`, H);
@@ -107,7 +85,6 @@ async function fetchLyrics(song: Song): Promise<Found | null> {
     await sleep(400);
   }
 
-  // 2) free-text search (try accented then de-accented query)
   for (const q of [`${song.title} ${song.artist}`, deaccent(`${song.title} ${song.artist}`)]) {
     const r = await fetchRetry(`https://lrclib.net/api/search?q=${encodeURIComponent(q)}`, H);
     await sleep(400);
@@ -115,7 +92,6 @@ async function fetchLyrics(song: Song): Promise<Found | null> {
     {
       const arr: any[] = await r.json().catch(() => []);
       if (!Array.isArray(arr)) continue;
-      // Prefer a result whose artist loosely matches, else first with lyrics.
       const wantA = deaccent(song.artist).toLowerCase();
       const sorted = [...arr].sort((a, b) => {
         const am = deaccent(String(a.artistName || '')).toLowerCase().includes(wantA) ? 0 : 1;
@@ -167,11 +143,10 @@ function slug(s: string): string {
 }
 
 async function main() {
-  // Google's OpenAI-compat endpoint wants the bare model name (strip "google/").
   const model = (envGet('OPENAI_MODEL') || 'gemini-flash-latest').replace(/^google\//, '');
   const entries: DatasetEntry[] = [];
   const missing: Song[] = [];
-  const sourceOnly: Song[] = []; // lyrics found, but draft translation failed
+  const sourceOnly: Song[] = [];
   const mismatched: string[] = [];
   let i = 0;
 
@@ -203,8 +178,6 @@ async function main() {
     try {
       translated = await translate(found.lines, song.language, model);
     } catch (err: any) {
-      // Keep the fetched SOURCE lyrics even if the draft failed — they're the
-      // hard-to-get part; the draft can be retried later.
       console.log(`found ${found.lines.length} lines, draft FAILED (${err?.message || err}) — source saved`);
       entries.push({ ...base, reference_lines: [] });
       sourceOnly.push(song);
@@ -221,7 +194,6 @@ async function main() {
 
   fs.writeFileSync(OUT, JSON.stringify(entries, null, 2));
 
-  // ---- Report ----
   const byLang = (arr: { language: string }[]) => {
     const m: Record<string, number> = {};
     for (const e of arr) m[e.language] = (m[e.language] ?? 0) + 1;

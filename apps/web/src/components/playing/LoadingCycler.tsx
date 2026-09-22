@@ -18,8 +18,6 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
-// Randomized orders per run — languages shuffled but ALWAYS English first,
-// phrases shuffled.
 function makeOrders(state: LoadState) {
   return {
     langOrder: ['en', ...shuffle(CYCLE_ORDER.filter((c) => c !== 'en'))],
@@ -27,17 +25,11 @@ function makeOrders(state: LoadState) {
   };
 }
 
-/**
- * The loading state on /playing. Cycles a LIST of phrases, each in a language —
- * both in a RANDOM order (English shown first) — advancing every tick so it
- * never repeats, with a soft fade and a slow ambient glow behind it.
- */
 export function LoadingCycler({ state }: { state: LoadState }) {
   const reduce = useReducedMotion();
   const [n, setN] = useState(0);
   const [orders, setOrders] = useState(() => makeOrders(state));
 
-  // Reshuffle + restart (English first) whenever the state changes.
   useEffect(() => {
     setOrders(makeOrders(state));
     setN(0);
@@ -50,7 +42,6 @@ export function LoadingCycler({ state }: { state: LoadState }) {
   const entry = phrases[orders.phraseOrder[n % orders.phraseOrder.length]];
   const phrase = entry[code] ?? entry.en;
 
-  // Simple, soft fade out → fade in (no slide).
   const enter = {
     initial: { opacity: 0 },
     animate: { opacity: 1 },
@@ -59,7 +50,6 @@ export function LoadingCycler({ state }: { state: LoadState }) {
 
   return (
     <div className="relative flex flex-col items-center justify-center gap-3 px-8 text-center">
-      {/* Ambient glow — soft, slow breathing behind the text */}
       {!reduce && (
         <motion.div
           aria-hidden
@@ -83,7 +73,6 @@ export function LoadingCycler({ state }: { state: LoadState }) {
         </AnimatePresence>
       </div>
 
-      {/* Language label — cross-fades in step so you can see where it's going */}
       <AnimatePresence mode="wait" initial={false}>
         <motion.span
           key={`lang-${n}`}

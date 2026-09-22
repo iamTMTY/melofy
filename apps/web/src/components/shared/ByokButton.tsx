@@ -4,8 +4,6 @@ import { useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { ByokModal } from './ByokModal';
 
-// A trigger that opens the BYOK modal. `onSaved` lets a caller react (e.g. retry
-// the translation) once a key is set.
 export function ByokButton({
   label = 'Use your own API key',
   className,

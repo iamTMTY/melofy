@@ -6,31 +6,23 @@ import { SUPPORTED_LANGUAGES } from '@/lib/types';
 import { track } from '@/lib/analytics/client';
 
 interface MelofyAppState {
-  /** Per-platform playback snapshots — each connected source updates its OWN slot,
-   *  so Spotify and YouTube Music no longer fight over one shared object. */
   sources: Partial<Record<MusicService, PlaybackState>>;
-  /** The platform the /playing screen is locked to (persisted across navigation). */
   activeSource: MusicService | null;
-  /** Convenience: the active source's playback (or an empty state). */
   playback: PlaybackState;
   preferences: UserPreferences;
   translatedLyrics: LyricLine[];
   isLoadingLyrics: boolean;
   isTranslating: boolean;
   translationError: string | null;
-  /** Machine-readable code for the current error, e.g. 'RATE_LIMIT'. */
   translationErrorCode: string | null;
   activeLineIndex: number;
   translationHash: string | null;
   sourceLanguage: string | null;
 
-  /** Merge a partial update into one platform's slot. */
   setSourcePlayback: (service: MusicService, state: Partial<PlaybackState>) => void;
-  /** Choose which platform /playing follows (persisted). */
   setActiveSource: (service: MusicService | null) => void;
   setPreferences: (prefs: Partial<UserPreferences>) => void;
   setTranslatedLyrics: (lyrics: LyricLine[], hash: string, sourceLanguage: string) => void;
-  /** Progressive update while streaming: sets lyrics without ending the translating state. */
   setStreamingLyrics: (lyrics: LyricLine[], sourceLanguage: string) => void;
   setLoading: (loading: boolean) => void;
   setTranslating: (translating: boolean) => void;
@@ -65,12 +57,11 @@ function loadPreferences(): UserPreferences {
   const defaults: UserPreferences = {
     ...BASE_PREFERENCES,
     targetLanguage: detectBrowserLanguage(),
+    fontSize: window.matchMedia('(max-width: 639px)').matches ? 'small' : BASE_PREFERENCES.fontSize,
   };
 
   try {
     const stored = localStorage.getItem('melofy-preferences');
-    // Merge OVER the defaults: prefs saved before a new key existed would
-    // otherwise come back with that key undefined.
     if (stored) return { ...defaults, ...JSON.parse(stored) };
   } catch {}
 
@@ -122,7 +113,6 @@ export function MelofyProvider({ children }: { children: ReactNode }) {
     } else if (preferences.theme === 'light') {
       document.documentElement.classList.remove('dark');
     } else {
-      // System
       const mq = window.matchMedia('(prefers-color-scheme: dark)');
       if (mq.matches) {
         document.documentElement.classList.add('dark');
@@ -171,8 +161,6 @@ export function MelofyProvider({ children }: { children: ReactNode }) {
     setTranslating(false);
   }, []);
 
-  // Progressive update during streaming — keeps `isTranslating` true (so the
-  // final-state logic stays intact) while lines populate the view incrementally.
   const setStreamingLyrics = useCallback((lyrics: LyricLine[], srcLang: string) => {
     setTranslatedLyricsState(lyrics);
     setSourceLanguage(srcLang);

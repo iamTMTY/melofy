@@ -70,9 +70,6 @@ export function Dashboard() {
     }
   }, [searchParams, router]);
 
-  // Remembered connection → reflect "connected" immediately, without waiting for
-  // the first successful playback poll. This is what stops the UI from showing
-  // "Tap to connect" (and re-triggering OAuth) for an already-connected user.
   useEffect(() => {
     if (spotifyToken) {
       setSourcePlayback('spotify', { connected: true });
@@ -82,8 +79,6 @@ export function Dashboard() {
   useSpotifyPlayer(spotifyToken);
   const { extensionDetected } = useYouTubeMusicPlayer();
 
-  // Hero connect button hides once Spotify is connected. Background art uses
-  // whichever platform currently has a track.
   const isConnected = !!spotifyToken || !!sources.spotify?.connected;
   const albumArt =
     sources.spotify?.track?.albumArtUrl || sources.youtube_music?.track?.albumArtUrl;
@@ -91,7 +86,6 @@ export function Dashboard() {
   return (
     <AlbumArtBackground imageUrl={albumArt}>
       <main className="min-h-[100dvh] flex flex-col justify-center sm:justify-start gap-6 sm:gap-0 py-8 sm:py-0">
-        {/* Hero */}
         <div className="text-center px-6 sm:pt-24 sm:pb-10">
           <motion.div
             initial={{ opacity: 0, y: 12 }}
@@ -116,18 +110,15 @@ export function Dashboard() {
           </motion.p>
         </div>
 
-        {/* Language selector */}
         <div className="flex justify-center sm:mb-8">
           <LanguagePicker />
         </div>
 
-        {/* Service cards */}
         <div className="sm:pb-16">
           <ServiceCards extensionDetected={extensionDetected} />
         </div>
       </main>
 
-      {/* Fixed, so it overlays without affecting the page's DOM flow. */}
       <Link
         href="/privacy"
         className="fixed bottom-4 left-4 z-20 text-sm text-gray-400 transition-colors hover:text-gray-600 dark:text-white hover:underline"

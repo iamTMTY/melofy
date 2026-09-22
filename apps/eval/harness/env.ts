@@ -2,11 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-// Read the repo-root .env for API keys (judge / reference models). The eval app
-// never writes it and never ships — this is a local dev tool. process.env wins
-// if a key is already exported.
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const ENV_PATH = path.resolve(HERE, '../../../.env'); // harness -> app -> eval -> repo root
+const ENV_PATH = path.resolve(HERE, '../../../.env');
 
 const fileEnv: Record<string, string> = {};
 try {
@@ -26,9 +23,7 @@ try {
         : raw;
     fileEnv[t.slice(0, i).trim()] = unquoted;
   }
-} catch {
-  // No .env at repo root — rely entirely on process.env.
-}
+} catch {}
 
 export function envGet(key: string): string {
   return process.env[key] || fileEnv[key] || '';

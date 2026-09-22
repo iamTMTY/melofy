@@ -17,7 +17,6 @@ export function LyricsView() {
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
-      {/* Empty states */}
       <AnimatePresence>
         {noTrack && (
           <motion.div
@@ -69,17 +68,14 @@ export function LyricsView() {
         )}
       </AnimatePresence>
 
-      {/* Loading skeleton */}
       <LoadingSkeleton />
 
-      {/* Lyrics list */}
       {translatedLyrics.length > 0 && (
         <div
           ref={containerRef}
           className="flex-1 overflow-y-auto scroll-fade-bottom py-[40vh] px-2"
           style={{ scrollBehavior: 'smooth' }}
         >
-          {/* Top padding spacer for first line centering */}
           <div className="h-[30vh]" />
 
           {translatedLyrics.map((lyric, idx) => (
@@ -92,7 +88,6 @@ export function LyricsView() {
             />
           ))}
 
-          {/* Bottom padding spacer */}
           <div className="h-[30vh]" />
         </div>
       )}

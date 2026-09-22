@@ -67,7 +67,6 @@ export function App() {
         <ByokSettings />
       ) : (
         <>
-          {/* Master on/off — unmounts the on-page widget from YouTube Music. */}
           <div className="mb-3 flex items-center justify-between rounded-xl bg-neutral-900 px-3 py-2.5">
             <div className="min-w-0">
               <p className="text-sm font-medium">Melofy lyrics</p>
@@ -92,7 +91,6 @@ export function App() {
             </button>
           </div>
 
-          {/* Lyric display prefs — read live by the on-page lyrics view. */}
           <div className="mb-3 space-y-2 rounded-xl bg-neutral-900 px-3 py-2.5">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium">Translate</span>

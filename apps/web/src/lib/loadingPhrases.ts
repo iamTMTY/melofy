@@ -1,12 +1,6 @@
-// Loading-state phrases for the /playing screen. Each state has a LIST of
-// phrases, and every phrase is translated across all selector languages. The
-// loader varies both the phrase and the language each tick (starting in
-// English), so it never repeats the same thing — like Claude's cycling loaders.
 
 export type LoadState = 'fetching' | 'translating';
 
-// The order the loader steps through languages — English first, then the
-// languages the app is really about, then the rest.
 export const CYCLE_ORDER: string[] = [
   'en', 'sw', 'yo', 'ig', 'ha',
   'es', 'fr', 'pt', 'de', 'it', 'ar', 'hi', 'zh', 'ja', 'ko', 'ru', 'tr', 'th', 'vi', 'nl', 'pl', 'sv',

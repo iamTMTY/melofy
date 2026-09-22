@@ -5,9 +5,6 @@ import localFont from 'next/font/local';
 import { PwaRegister } from '@/components/pwa/PwaRegister';
 import { PostHogProvider } from '@/components/analytics/PostHogProvider';
 
-// Self-hosted + preloaded in the document head so the fonts arrive WITH the page
-// (no flash-of-unstyled-text). next/font also injects a metric-adjusted fallback,
-// so there's no layout shift when the real face swaps in.
 const outfit = Outfit({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700', '800'],
@@ -68,8 +65,6 @@ export default function RootLayout({
             `,
           }}
         />
-        {/* Chrome fires beforeinstallprompt before React hydrates; stash it so the
-            InstallPrompt component can use it once mounted. */}
         <script
           dangerouslySetInnerHTML={{
             __html: `window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();window.__melofyBip=e;window.dispatchEvent(new Event('melofy:bip'));});`,

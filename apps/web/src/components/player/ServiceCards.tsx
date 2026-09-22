@@ -19,8 +19,6 @@ export function ServiceCards({ extensionDetected = false }: { extensionDetected?
   const [installOpen, setInstallOpen] = useState(false);
   const [appleOpen, setAppleOpen] = useState(false);
 
-  // YouTube Music depends on the extension; hide it on devices that can't run one
-  // (mobile). Default to showing (desktop is the common case) then correct on mount.
   const [extensionCapable, setExtensionCapable] = useState(true);
   useEffect(() => setExtensionCapable(canUseExtension()), []);
   const visibleServices = SERVICES.filter(
@@ -34,13 +32,9 @@ export function ServiceCards({ extensionDetected = false }: { extensionDetected?
 
     if (!isConnected) {
       if (service.id === 'spotify') {
-        // Only redirect to OAuth if there's no remembered connection. If the user
-        // has connected before, startSpotifyConnect() skips the redirect and we
-        // surface the connected experience instead.
         const redirected = startSpotifyConnect();
         if (!redirected) setModalService(service);
       } else if (service.id === 'youtube_music') {
-        // YTM needs the browser extension as its now-playing provider.
         if (extensionDetected) setModalService(service);
         else setInstallOpen(true);
       } else if (service.id === 'apple_music') {
@@ -56,8 +50,6 @@ export function ServiceCards({ extensionDetected = false }: { extensionDetected?
       return;
     }
 
-    // Connected + playing → lock /playing to THIS platform, then navigate.
-    // /playing fetches the translation for the active source on mount.
     setActiveSource(service.id);
     router.push(service.route);
   }, [sources, extensionDetected, setActiveSource, router]);

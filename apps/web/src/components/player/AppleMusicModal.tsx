@@ -2,8 +2,6 @@
 
 import { motion } from 'framer-motion';
 
-// Shown when someone taps Apple Music — which Melofy can't support without a paid
-// Apple Developer account. Honest, and hopefully a little charming.
 export function AppleMusicModal({ onClose }: { onClose: () => void }) {
   return (
     <motion.div

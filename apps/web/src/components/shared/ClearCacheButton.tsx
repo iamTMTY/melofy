@@ -3,8 +3,6 @@
 import { useState } from 'react';
 import { clearTranslationCache } from '@/lib/cache/translationCache';
 
-// Wipes the browser-local (IndexedDB) translation cache. The server-side
-// Redis/Mongo cache is unaffected. Renders just a button so it can sit inline.
 export function ClearCacheButton({ className }: { className?: string }) {
   const [state, setState] = useState<'idle' | 'clearing' | 'cleared'>('idle');
 

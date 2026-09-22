@@ -1,17 +1,3 @@
-// Build the reviewer gold set: fetch the hand-picked songs from LRCLIB by their
-// EXACT track id, draft an English translation with the PRODUCT engine (two-step
-// brief → line translation, via /api/eval/translate), and emit both
-//   · dataset/dataset.json  — upserted entries for the eval harness / Langfuse
-//   · dataset/gold/<id>.txt — one review sheet per song for human reviewers
-//
-//   pnpm --filter @melofy/eval gold:build
-//
-// Requires the web app running locally (the engine lives behind its dev-only
-// eval endpoint), i.e. `pnpm --filter @melofy/web dev` on :3009.
-//
-// Track ids are pinned deliberately: LRCLIB search ranking drifts, and several
-// of these songs have multiple masters whose timings differ. A pinned id makes
-// the gold set reproducible.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -31,15 +17,12 @@ interface Song {
   title: string;
 }
 
-// Verified present and synced on LRCLIB (checked before pinning).
 const SONGS: Song[] = [
-  // --- Yoruba ---
   { lrclibId: 5687021, language: 'Yoruba', code: 'yo', artist: 'Brymo', title: 'Ọkùnrin Mẹ́ta (Ẹ̀dùn Ọkàn)' },
   { lrclibId: 9919001, language: 'Yoruba', code: 'yo', artist: 'Teledalase', title: 'Eledumare' },
   { lrclibId: 17230407, language: 'Yoruba', code: 'yo', artist: 'Sola Allyson', title: 'Eji Owuro' },
   { lrclibId: 11279307, language: 'Yoruba', code: 'yo', artist: 'King Sunny Ade', title: 'Merciful God' },
   { lrclibId: 9854564, language: 'Yoruba', code: 'yo', artist: 'Beautiful Nubia', title: "How do you do? (Owuro L'ojo)" },
-  // --- Swahili ---
   { lrclibId: 9715649, language: 'Swahili', code: 'sw', artist: 'Sauti Sol', title: 'Tujiangalie' },
   { lrclibId: 7532759, language: 'Swahili', code: 'sw', artist: 'Mbosso', title: 'Nadekezwa' },
   { lrclibId: 14094907, language: 'Swahili', code: 'sw', artist: 'Ruby', title: 'Na Yule' },
@@ -53,7 +36,6 @@ const deaccent = (s: string) => s.normalize('NFKD').replace(/\p{Diacritic}/gu, '
 const slug = (s: string) =>
   deaccent(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
 
-/** LRCLIB answers 503 ServerOverloaded under load — back off rather than drop a song. */
 async function fetchTrack(id: number, tries = 5): Promise<any | null> {
   for (let a = 0; a < tries; a++) {
     try {
@@ -64,15 +46,12 @@ async function fetchTrack(id: number, tries = 5): Promise<any | null> {
         const d: any = await r.json();
         if (d && !d.statusCode) return d;
       }
-    } catch {
-      /* retry */
-    }
+    } catch {}
     await sleep(2000 * (a + 1));
   }
   return null;
 }
 
-/** One review sheet per song, in the existing dataset/gold/*.txt convention. */
 function reviewSheet(entry: DatasetEntry, song: Song, model: string): string {
   const bar = '# ' + '='.repeat(69);
   const head = [
@@ -124,9 +103,6 @@ async function main() {
   console.log(`Model  : ${model}\n`);
 
   const built: DatasetEntry[] = [];
-  // Two severities: `failures` are things that DIDN'T happen (LRCLIB down, draft
-  // call failed) and fail the run; `warnings` are things reviewers need to look
-  // at (a draft with a different line count) but the sheet still got written.
   const failures: string[] = [];
   const warnings: string[] = [];
 
@@ -180,7 +156,6 @@ async function main() {
       );
       if (!aligned) warnings.push(`${label}: line-count mismatch (${source_lines.length} vs ${translated.length}) — reviewer must realign`);
     } catch (err: any) {
-      // Keep the source lyrics either way — they're the hard part to re-obtain.
       entry.reference_lines = [];
       console.log(`draft FAILED (${err?.message || err}) — source kept`);
       failures.push(`${label}: ${err?.message || err}`);
@@ -190,7 +165,6 @@ async function main() {
     await sleep(800);
   }
 
-  // --- upsert into dataset.json (never clobber a reviewed entry) -----------
   const existing: DatasetEntry[] = fs.existsSync(DATASET)
     ? JSON.parse(fs.readFileSync(DATASET, 'utf8'))
     : [];
@@ -201,7 +175,7 @@ async function main() {
   for (const e of built) {
     const prev = byId.get(e.id);
     if (prev?.reviewed) {
-      skipped++; // a human already corrected this one — leave it alone
+      skipped++;
       continue;
     }
     if (prev) updated++;
@@ -211,7 +185,6 @@ async function main() {
   const merged = [...byId.values()];
   fs.writeFileSync(DATASET, JSON.stringify(merged, null, 2));
 
-  // --- review sheets -------------------------------------------------------
   // NEVER clobber a sheet that exists: it may hold hours of a reviewer's work,
   // and a half-filled sheet is not marked `reviewed` anywhere, so checking the
   // dataset flag alone would still destroy in-progress annotation. Overwriting
@@ -250,7 +223,6 @@ async function main() {
     for (const f of failures) console.log(`   - ${f}`);
   }
   console.log('\nNext: pnpm --filter @melofy/eval dataset:sync   (push to Langfuse)');
-  // Only genuine failures are non-zero; a mismatch is a review task, not a broken build.
   process.exit(failures.length ? 1 : 0);
 }
 

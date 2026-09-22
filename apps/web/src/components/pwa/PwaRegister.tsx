@@ -2,10 +2,6 @@
 
 import { useEffect } from 'react';
 
-/**
- * Registers /sw.js. Production only: a service worker in `next dev` serves stale
- * bundles across code changes and makes every reload a debugging exercise.
- */
 export function PwaRegister() {
   useEffect(() => {
     if (process.env.NODE_ENV !== 'production') return;

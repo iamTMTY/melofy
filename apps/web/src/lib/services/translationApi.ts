@@ -5,24 +5,12 @@ import { consumeTranslation } from '../rate-limit';
 import { decryptApiKey } from '../byok/serverKeys';
 import type { LyricLine } from '@/lib/types';
 
-// Shared server-side translation policy, used identically by BOTH the web
-// streaming route and the extension route, so cache/limit/BYOK/error behavior
-// can't drift between them. The routes differ only in transport (NDJSON stream
-// vs JSON) and lyric source (server-fetched vs client-provided).
-
 export interface CacheLookup {
   hash: string;
-  lyrics: LyricLine[] | null; // null = miss
+  lyrics: LyricLine[] | null;
   sourceLanguage: string;
 }
 
-/**
- * Hash the RECORDING and read the shared cache (Redis → Mongo).
- *
- * `recording` is not optional in spirit: omitting it falls back to song-level
- * keying, which can serve one master's translation (and timings) for another.
- * Callers that know the album/duration must pass them.
- */
 export async function lookupCache(
   artist: string,
   title: string,
@@ -36,9 +24,7 @@ export async function lookupCache(
     if (cached.found && cached.lyrics?.length) {
       return { hash, lyrics: cached.lyrics, sourceLanguage: cached.sourceLanguage || 'unknown' };
     }
-  } catch {
-    /* treat cache/db errors as a miss */
-  }
+  } catch {}
   return { hash, lyrics: null, sourceLanguage: 'unknown' };
 }
 
@@ -46,11 +32,6 @@ export type GateResult =
   | { ok: true; userKey?: string }
   | { ok: false; status: number; body: Record<string, unknown> };
 
-/**
- * Gate a NEW translation (call only on a cache miss — a hit costs nothing).
- * A BYOK key (decrypted in memory, never stored/logged) bypasses the shared
- * per-IP daily limit; otherwise one unit of the free budget is consumed.
- */
 export async function gateTranslation(req: NextRequest, encryptedKey?: string): Promise<GateResult> {
   if (encryptedKey) {
     try {
@@ -78,7 +59,6 @@ export async function gateTranslation(req: NextRequest, encryptedKey?: string): 
   return { ok: true };
 }
 
-/** Persist a fresh translation to the shared cache (best-effort). */
 export async function persistTranslation(
   hash: string,
   artist: string,
@@ -89,12 +69,9 @@ export async function persistTranslation(
 ): Promise<void> {
   try {
     await saveCachedTranslation({ hash, artist, title, sourceLanguage, targetLanguage, lyrics });
-  } catch {
-    /* best-effort */
-  }
+  } catch {}
 }
 
-/** Map a translation failure to a client response (provider 429 → friendly quota). */
 export function translateErrorBody(error: unknown): { status: number; body: Record<string, unknown> } {
   const e = error as { status?: number; message?: string };
   const is429 = e?.status === 429 || /\b429\b/.test(String(e?.message ?? ''));

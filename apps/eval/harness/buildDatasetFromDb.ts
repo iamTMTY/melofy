@@ -1,20 +1,3 @@
-// Rebuild the eval dataset from the translations already cached in MongoDB.
-//
-// These are real, production translations produced by the app's current model
-// (google/gemini-flash-latest — "Gemini Flash"), which we're now treating as the
-// BASE reference set: source_lines = the original lyric lines, reference_lines =
-// Gemini's translation. Re-runnable as the cache grows ("add more later").
-//
-//   pnpm eval:dataset:from-db
-//
-// Reads MONGO_URI + OPENAI_MODEL from the repo-root .env (see env.ts). The old
-// dataset.json is backed up to dataset.json.bak before it's overwritten.
-//
-// NOTE: because the references are Gemini's own output, evaluating Gemini against
-// this set is somewhat circular (it's scored against itself) — the value is in
-// (a) comparing OTHER models against a strong, real baseline and (b) giving human
-// reviewers a concrete set to correct into true gold. `reviewed: false` marks
-// every entry as model-seeded, not yet human-verified.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -25,8 +8,6 @@ import type { DatasetEntry } from './types.ts';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const OUT = path.resolve(HERE, '../dataset/dataset.json');
 
-// Language code → display name, for the dashboard's per-language grouping + the
-// judge's context line. Extend as the dataset grows.
 const CODE_TO_NAME: Record<string, string> = {
   en: 'English',
   yo: 'Yoruba',
@@ -88,7 +69,7 @@ async function main() {
           reference_lines: lyrics.map((l) => l.translated),
           brief: null,
           generator_model: model,
-          reviewed: false, // model-seeded reference, not yet human-verified
+          reviewed: false,
           reviewer: null,
         } satisfies DatasetEntry;
       });

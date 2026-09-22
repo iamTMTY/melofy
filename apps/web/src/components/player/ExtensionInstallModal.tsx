@@ -3,8 +3,6 @@
 import { motion } from 'framer-motion';
 import { CHROME_WEB_STORE_URL } from '@/lib/constants';
 
-// Shown when the user picks YouTube Music but the Melofy browser extension —
-// which provides YTM now-playing — isn't detected on this page.
 export function ExtensionInstallModal({ onClose }: { onClose: () => void }) {
   return (
     <motion.div

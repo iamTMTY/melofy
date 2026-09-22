@@ -1,5 +1,3 @@
-// Shared types for the eval harness (server-side). The UI re-declares the slim
-// shapes it needs from the JSON API, so this file stays free of any coupling.
 
 export interface DatasetEntry {
   id: string;

@@ -54,8 +54,6 @@ export function App() {
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
-  // Track whether the user has picked models/judge, so re-applying defaults as the
-  // (flaky) provider lists fill in never clobbers a real choice.
   const touchedModels = useRef(false);
   const touchedJudge = useRef(false);
 
@@ -80,7 +78,6 @@ export function App() {
     getModels()
       .then((m) => {
         apply(m);
-        // A provider list can flake out on first hit; refetch once to fill it in.
         if (!m.complete) setTimeout(() => getModels(true).then(apply).catch(() => {}), 2500);
       })
       .catch((e) => !cancelled && setError(String(e)));
@@ -201,7 +198,6 @@ export function App() {
 
   return (
     <div className="mx-auto max-w-[1360px] px-6 py-8 lg:px-10 lg:py-10">
-      {/* Header */}
       <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">
@@ -234,9 +230,7 @@ export function App() {
       )}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-        {/* Main column */}
         <div className="flex flex-col gap-6">
-          {/* Controls */}
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Configure run</CardTitle>
@@ -350,7 +344,6 @@ export function App() {
             </CardContent>
           </Card>
 
-          {/* Chart */}
           {hasScores && (
             <Card>
               <CardHeader>
@@ -365,7 +358,6 @@ export function App() {
             </Card>
           )}
 
-          {/* Results */}
           {rows.length > 0 ? (
             <Card>
               <CardHeader>
@@ -393,7 +385,6 @@ export function App() {
           )}
         </div>
 
-        {/* History sidebar */}
         <aside className="lg:sticky lg:top-10 lg:h-fit">
           <Card>
             <CardHeader>

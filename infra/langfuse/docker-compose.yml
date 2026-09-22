@@ -1,25 +1,3 @@
-# Local, dev-only Langfuse (self-hosted). This is the official Langfuse
-# self-hosting stack (langfuse-web + worker + postgres + clickhouse + redis +
-# minio). It is HEAVY — bring it up only when you're doing eval work:
-#
-#   pnpm langfuse:up      # docker compose -f infra/langfuse/docker-compose.yml --env-file .env up -d
-#   open http://localhost:3780   # create an account + project, copy the API keys
-#   pnpm langfuse:down
-#
-# ALL config lives in the repo-root .env (the single source of truth). The
-# ${VAR:-default} fallbacks below mean the stack runs out of the box with no
-# entries at all; override any of them in the root .env to harden the box before
-# exposing it beyond localhost. After first boot, put the project keys in the
-# root .env too (LANGFUSE_PUBLIC_KEY / LANGFUSE_SECRET_KEY /
-# LANGFUSE_BASE_URL=http://localhost:3780) and run the eval.
-#
-# Data persists in the named volumes below. For remote human annotators (who need
-# a URL) use Langfuse Cloud's free tier instead of exposing this box.
-#
-# NOTE: ports here (postgres 5432, redis 6379, clickhouse 8123/9000) are Langfuse's
-# OWN infra, separate from the app's mongo/redis in ../docker-compose.yml. They are
-# bound to 127.0.0.1 so they don't clash with anything external, but if the app's
-# Redis is already on 6379 you may want to stop one while the other runs, or remap.
 services:
   langfuse-worker:
     image: docker.io/langfuse/langfuse-worker:4

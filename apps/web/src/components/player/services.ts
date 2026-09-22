@@ -3,10 +3,8 @@ import type { MusicService } from '@/lib/types';
 export interface ServiceConfig {
   id: MusicService;
   name: string;
-  /** In-app route for the service's playing screen. */
   route: string;
   color: string;
-  /** External site opened by the "Open {name}" action. */
   openUrl: string;
 }
 

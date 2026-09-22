@@ -5,10 +5,6 @@ import { motion } from 'framer-motion';
 import { clearApiKey, hasApiKey, isRemembered, setApiKey } from '@/lib/byok/client';
 import { track } from '@/lib/analytics/client';
 
-// "Bring your own key" — paste a Google Gemini API key to translate with your own
-// quota (and bypass the shared daily limit). The key is encrypted in transit
-// (RSA-OAEP) and, if remembered, encrypted at rest (AES-GCM); it is never stored
-// on Melofy's servers.
 export function ByokModal({ onClose, onSaved }: { onClose: () => void; onSaved?: () => void }) {
   const [key, setKey] = useState('');
   const [remember, setRemember] = useState(true);

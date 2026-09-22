@@ -2,13 +2,8 @@
 
 import { useEffect, useState } from 'react';
 
-/** Brand purple — used until (or unless) the artwork yields something better. */
 const FALLBACK = '#c4b5fd';
 
-/**
- * Hue + saturation from the artwork, lightness fixed at a level that stays
- * legible on the dark player backdrop. Contrast is not negotiable; hue is.
- */
 function readableTint(r: number, g: number, b: number): string {
   const rn = r / 255, gn = g / 255, bn = b / 255;
   const max = Math.max(rn, gn, bn);
@@ -24,7 +19,6 @@ function readableTint(r: number, g: number, b: number): string {
   }
   const l = (max + min) / 2;
   const s = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1));
-  // Cap saturation too — a fully saturated tint vibrates against white text.
   const sat = Math.round(Math.min(Math.max(s, 0.45), 0.8) * 100);
   return `hsl(${Math.round(h)}, ${sat}%, 80%)`;
 }
@@ -68,14 +62,10 @@ export function useAdaptiveAccent(imageUrl: string | undefined, enabled: boolean
           const max = Math.max(r, g, b);
           const min = Math.min(r, g, b);
           const lightness = (max + min) / 2 / 255;
-          // Skip near-black/near-white pixels: they make washed-out accents.
           if (lightness < 0.2 || lightness > 0.85) continue;
           const score = (max - min) * lightness;
           if (score > bestScore) {
             bestScore = score;
-            // Take the artwork's HUE but pin lightness high: a sampled colour
-            // straight off the cover is often too dark to read as lyric text
-            // against the (already dark) blurred backdrop.
             best = readableTint(r, g, b);
           }
         }

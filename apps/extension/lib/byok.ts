@@ -1,10 +1,5 @@
 import { MELOFY_API_BASE } from './config';
 
-// "Bring your own key" for the extension. The key is stored in the extension's
-// own storage (sandboxed from web pages) and sent to the Melofy API only
-// RSA-OAEP-encrypted for the server's public key — never in plaintext, never
-// stored server-side. Mirrors the web app's transit encryption.
-
 const BYOK_KEY = 'melofy:byok-key';
 
 export async function getStoredKey(): Promise<string | null> {
@@ -21,7 +16,6 @@ export async function hasStoredKey(): Promise<boolean> {
   return !!(await getStoredKey());
 }
 
-// --- transit encryption (RSA-OAEP for the server's public key) --------------
 let pubKeyCache: CryptoKey | null = null;
 
 function fromB64(s: string): Uint8Array<ArrayBuffer> {
@@ -52,7 +46,6 @@ async function getServerPublicKey(force = false): Promise<CryptoKey> {
   return pubKeyCache;
 }
 
-/** The encrypted key to attach to a translate request, or null if none is set. */
 export async function getEncryptedKey(): Promise<string | null> {
   const raw = await getStoredKey();
   if (!raw) return null;
@@ -61,6 +54,6 @@ export async function getEncryptedKey(): Promise<string | null> {
     const ct = await crypto.subtle.encrypt({ name: 'RSA-OAEP' }, pub, new TextEncoder().encode(raw));
     return toB64(ct);
   } catch {
-    return null; // fall back to the shared key / rate limit
+    return null;
   }
 }

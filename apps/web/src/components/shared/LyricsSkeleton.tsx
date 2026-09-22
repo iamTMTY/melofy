@@ -3,7 +3,6 @@
 import { motion } from 'framer-motion';
 
 // Deterministic widths (no Math.random → no hydration mismatch, no per-render jitter).
-// The middle entry stands in for the active, centered line and reads largest.
 const LINES = [
   { w: '46%', active: false },
   { w: '62%', active: false },

@@ -1,8 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { providerFor, outboundModel, resolveClient } from './translation';
 
-// Model → provider routing. No network: resolveClient only *constructs* an SDK
-// client, it doesn't call it.
 describe('providerFor', () => {
   it('routes any namespaced slug to OpenRouter', () => {
     expect(providerFor('google/gemini-3.7-flash')).toBe('openrouter');
@@ -22,7 +20,6 @@ describe('outboundModel', () => {
   });
 
   it('normalizes a gemini-flash slug to the rolling alias for Google-direct', () => {
-    // Google direct blocks pinned versions for new keys → use the alias.
     expect(outboundModel('google/gemini-3.7-flash', 'gemini')).toBe('gemini-flash-latest');
     expect(outboundModel('gemini-2.5-flash', 'gemini')).toBe('gemini-flash-latest');
   });
