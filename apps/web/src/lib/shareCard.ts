@@ -1,21 +1,12 @@
-// Renders a shareable lyric card to a PNG blob.
-//
 // ponytail: hand-drawn on a 2D canvas rather than pulling in html2canvas —
 // it's one square layout, and a DOM rasterizer is ~200KB for the privilege.
 // If the card ever needs real layout (RTL, mixed scripts, rich text), swap the
 // body of renderShareCard for a rasterizer; the signature stays.
 
-/** Most platforms cap a shared snippet at a handful of lines; so do we. */
 export const MAX_SHARE_LINES = 5;
 
-/**
- * Toggles a lyric index in the share selection, keeping it a contiguous run:
- * tapping an end drops it, tapping a neighbour extends, anything else starts
- * a fresh selection. Returns a sorted array.
- */
 export function toggleShareSelection(cur: number[], idx: number, max = MAX_SHARE_LINES): number[] {
   if (cur.includes(idx)) {
-    // Removing from the middle would split the run, so only the ends give.
     if (idx === cur[0] || idx === cur[cur.length - 1]) return cur.filter((i) => i !== idx);
     return cur;
   }
@@ -30,8 +21,6 @@ const SIZE = 1080;
 const PAD = 80;
 const BARS = [34, 29, 24, 19, 14, 19, 24, 29, 34];
 
-// Rhythm: wrapped rows of the SAME lyric hug each other, the gloss sits close
-// under its line, and the visible break lands between separate lyric lines.
 /** Wordmark cap height as a fraction of the mark's height. Raise to enlarge. */
 const CAP_RATIO = 0.88;
 /** How far to lift the wordmark off the bars' baseline, as a fraction of the mark. */
@@ -41,7 +30,6 @@ const LEADING = 1.14;
 const SUB_LEADING = 1.25;
 const ENTRY_GAP = 0.62;
 
-/** One lyric line: the text being read, plus the original when it's shown. */
 export interface ShareLine {
   primary: string;
   secondary?: string | null;
@@ -52,11 +40,9 @@ export interface ShareCardInput {
   title: string;
   artist: string;
   albumArtUrl?: string;
-  /** Accent used for the gradient when there's no usable artwork. */
   accent?: string;
 }
 
-/** Loads an image for canvas use, or null if it isn't CORS-readable. */
 function loadImage(url: string): Promise<HTMLImageElement | null> {
   return new Promise((resolve) => {
     const img = new Image();
@@ -69,7 +55,6 @@ function loadImage(url: string): Promise<HTMLImageElement | null> {
   });
 }
 
-/** Greedy word wrap against the current ctx font. */
 function wrap(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
   const words = text.split(/\s+/).filter(Boolean);
   if (words.length === 0) return [''];
@@ -97,7 +82,6 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   ctx.closePath();
 }
 
-/** Draws the Melofy waveform mark, scaled to `h` pixels tall. Returns its width. */
 function drawMark(ctx: CanvasRenderingContext2D, x: number, y: number, h: number): number {
   const unit = h / Math.max(...BARS);
   const w = 3 * unit;
@@ -111,14 +95,8 @@ function drawMark(ctx: CanvasRenderingContext2D, x: number, y: number, h: number
   return BARS.length * w + (BARS.length - 1) * gap;
 }
 
-/** melofy-200 — the wordmark colour the homepage uses on dark. */
 const BRAND = '#c4b5fd';
 
-/**
- * The app's own faces, read off the document so the card matches the UI:
- * Outfit for text, Bunch Blossoms for the wordmark. Falls back to system
- * fonts when the CSS vars aren't resolvable (SSR, tests).
- */
 function fontStacks() {
   const read = (v: string) => {
     try {
@@ -136,15 +114,53 @@ function fontStacks() {
   };
 }
 
-/** Forces the given font shorthands to load; never throws. */
 async function ensureFonts(specs: string[]): Promise<void> {
   try {
     if (!document.fonts) return;
     await Promise.all(specs.map((spec) => document.fonts.load(spec).catch(() => {})));
     await document.fonts.ready;
-  } catch {
-    // A missing face just means the system fallback renders — not fatal.
+  } catch {}
+}
+
+/**
+ * Cover-fit `img` into a `size`² square and blur it by roughly `strength` px.
+ *
+ * Deliberately NOT `ctx.filter = 'blur(…)'`: mobile WebKit ignores that property
+ * silently, so phones drew the cover sharp under the scrim and the card looked
+ * broken. Repeated halving then doubling with bilinear resampling is supported
+ * everywhere and converges on a gaussian-like blur; the intermediate hops are
+ * what keep it smooth (a single 30× upscale would show pyramid artefacts).
+ */
+function blurredCover(img: HTMLImageElement, size: number, strength: number): HTMLCanvasElement {
+  const make = (w: number) => {
+    const c = document.createElement('canvas');
+    c.width = c.height = w;
+    const g = c.getContext('2d')!;
+    g.imageSmoothingEnabled = true;
+    g.imageSmoothingQuality = 'high';
+    return { c, g };
+  };
+
+  let { c: cur, g } = make(size);
+  const scale = Math.max(size / img.width, size / img.height) * 1.25;
+  g.drawImage(img, (size - img.width * scale) / 2, (size - img.height * scale) / 2, img.width * scale, img.height * scale);
+
+  const target = Math.max(6, Math.round(size / strength));
+  let w = size;
+  while (w / 2 >= target) {
+    const next = make(w / 2);
+    next.g.drawImage(cur, 0, 0, w / 2, w / 2);
+    cur = next.c;
+    w /= 2;
   }
+  while (w < size) {
+    const nw = Math.min(size, w * 2);
+    const next = make(nw);
+    next.g.drawImage(cur, 0, 0, nw, nw);
+    cur = next.c;
+    w = nw;
+  }
+  return cur;
 }
 
 export async function renderShareCard({ lines, title, artist, albumArtUrl, accent }: ShareCardInput): Promise<Blob> {
@@ -161,16 +177,12 @@ export async function renderShareCard({ lines, title, artist, albumArtUrl, accen
 
   const art = albumArtUrl ? await loadImage(albumArtUrl) : null;
 
-  // --- background ---------------------------------------------------------
   if (art) {
-    // Blurred cover fill, the way the player looks.
-    ctx.save();
-    ctx.filter = 'blur(48px) saturate(160%)';
-    const scale = Math.max(SIZE / art.width, SIZE / art.height) * 1.25;
-    const dw = art.width * scale;
-    const dh = art.height * scale;
-    ctx.drawImage(art, (SIZE - dw) / 2, (SIZE - dh) / 2, dw, dh);
-    ctx.restore();
+    // ponytail: 80 is calibrated, not literal. The blur only changes at each
+    // halving, so at 1080px `48` stops at a 33px intermediate (too sharp — the
+    // cover stays legible) while `80` reaches 16px, which matches the player's
+    // backdrop-blur-3xl (64px). Re-tune if SIZE changes.
+    ctx.drawImage(blurredCover(art, SIZE, 80), 0, 0);
     ctx.fillStyle = 'rgba(0, 0, 0, 0.62)';
     ctx.fillRect(0, 0, SIZE, SIZE);
   } else {
@@ -183,7 +195,6 @@ export async function renderShareCard({ lines, title, artist, albumArtUrl, accen
     ctx.fillRect(0, 0, SIZE, SIZE);
   }
 
-  // --- header: cover thumb + track ----------------------------------------
   const thumb = 132;
   let textX = PAD;
   if (art) {
@@ -205,14 +216,10 @@ export async function renderShareCard({ lines, title, artist, albumArtUrl, accen
   ctx.font = `500 34px ${sans}`;
   ctx.fillText(wrap(ctx, artist, headWidth)[0], textX, PAD + (art ? 108 : 94));
 
-  // --- lyrics, vertically centred in the remaining space ------------------
   const bodyTop = PAD + thumb + 70;
   const bodyBottom = SIZE - PAD - 90;
   const maxWidth = SIZE - PAD * 2;
 
-  // Each entry becomes a block: the read line, then the original beneath it.
-  // Shrink the type until the whole selection fits — a 5-line snippet of long
-  // lines would otherwise run off the bottom.
   type Block = { text: string; sub: boolean };
   let fontSize = 62;
   let blocks: Block[] = [];
@@ -251,7 +258,6 @@ export async function renderShareCard({ lines, title, artist, albumArtUrl, accen
     } else {
       ctx.font = `700 ${fontSize}px ${sans}`;
       ctx.fillStyle = '#ffffff';
-      // Breathing room when a new selected line starts after a gloss.
       if (prevSub) y += fontSize * ENTRY_GAP;
       y += fontSize * LEADING;
     }
@@ -259,15 +265,10 @@ export async function renderShareCard({ lines, title, artist, albumArtUrl, accen
     prevSub = block.sub;
   }
 
-  // --- footer: mark + wordmark as ONE lockup, matching the homepage --------
   const markH = 46;
   const markW = drawMark(ctx, PAD, SIZE - PAD - markH, markH);
   ctx.fillStyle = BRAND;
 
-  // Fit the wordmark by its ASCENT, not its full glyph box. Scaling the whole
-  // box (which includes the 'y' tail) shrinks the letters themselves; matching
-  // cap height to bar height and sharing a baseline is the standard lockup, and
-  // the descender is allowed to hang below the bars as a tail.
   const WORDMARK = 'Melofy';
   const targetAscent = markH * CAP_RATIO;
   ctx.font = `400 100px ${brand}`;
@@ -275,9 +276,6 @@ export async function renderShareCard({ lines, title, artist, albumArtUrl, accen
   const size = probe > 0 ? Math.round((100 * targetAscent) / probe) : Math.round(targetAscent * 1.4);
 
   ctx.font = `400 ${size}px ${brand}`;
-  // Sitting the baseline exactly on the bars' bottom reads as slightly LOW,
-  // because the descending tail hangs below it and drags the optical centre
-  // down. Lift it to put the visual mass on the mark's centre line.
   ctx.fillText(WORDMARK, PAD + markW + 20, SIZE - PAD - markH * BASELINE_LIFT);
 
   return new Promise((resolve, reject) => {

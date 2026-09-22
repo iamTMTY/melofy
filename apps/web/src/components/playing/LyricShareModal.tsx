@@ -55,10 +55,12 @@ export function LyricShareModal({ lines, title, artist, albumArtUrl, accent, onC
     if (!blob) return;
     const file = new File([blob], fileName, { type: 'image/png' });
     try {
-      await navigator.share({ files: [file], text: asText });
-    } catch {
-      // Sheet dismissed — not an error worth surfacing.
-    }
+      // Image ONLY. Any `text`/`title` here becomes a caption on WhatsApp status
+      // and similar targets, so the lyrics appeared twice — on the card and as
+      // text beside it. The "Copy text" button is the explicit path for words.
+      await navigator.share({ files: [file] });
+      onClose();
+    } catch {}
   };
 
   const download = () => {
@@ -70,6 +72,7 @@ export function LyricShareModal({ lines, title, artist, albumArtUrl, accent, onC
     document.body.appendChild(a);
     a.click();
     a.remove();
+    onClose();
   };
 
   const copy = async () => {
@@ -98,7 +101,7 @@ export function LyricShareModal({ lines, title, artist, albumArtUrl, accent, onC
         exit={{ opacity: 0, y: 24, scale: 0.98 }}
         transition={{ type: 'spring', bounce: 0, duration: 0.35 }}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-sm rounded-t-3xl sm:rounded-3xl bg-white/90 dark:bg-[#1c1c1e]/90 backdrop-blur-2xl border border-black/[0.06] dark:border-white/10 shadow-2xl p-5 pb-7"
+        className="w-full sm:max-w-sm rounded-t-3xl sm:rounded-3xl bg-white/90 dark:bg-[#1c1c1e]/90 backdrop-blur-2xl border border-black/[0.06] dark:border-white/10 shadow-2xl p-5 pb-7"
       >
         <div className="mx-auto mb-4 h-1 w-9 rounded-full bg-black/10 dark:bg-white/15 sm:hidden" />
 
@@ -142,7 +145,6 @@ export function LyricShareModal({ lines, title, artist, albumArtUrl, accent, onC
             </>
           ) : (
             <>
-              {/* No native share sheet here — saving the image IS the action. */}
               <button
                 onClick={download}
                 disabled={!url}

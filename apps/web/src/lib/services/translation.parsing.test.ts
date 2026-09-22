@@ -2,8 +2,6 @@ import { describe, it, expect } from 'vitest';
 import { parseTranslationResponse, looksLikeRefusal, detectSourceLanguage } from './translation';
 import type { LyricLine } from '@/lib/types';
 
-// These take a model's OUTPUT as a plain string and turn it into aligned lyrics —
-// no model is invoked here, we feed canned output.
 const lyrics: LyricLine[] = [
   { index: 0, timeMs: 1000, durationMs: 2000, original: 'Ojú ayé le' },
   { index: 1, timeMs: 3000, durationMs: 2000, original: 'Mo ní ìrètí' },
@@ -26,7 +24,7 @@ describe('parseTranslationResponse', () => {
   it('keeps the original text for a line the model dropped', () => {
     const { translatedLyrics } = parseTranslationResponse('[00:01.00] Life is hard', lyrics);
     expect(translatedLyrics[0].translated).toBe('Life is hard');
-    expect(translatedLyrics[1].translated).toBe('Mo ní ìrètí'); // untouched
+    expect(translatedLyrics[1].translated).toBe('Mo ní ìrètí');
   });
 });
 

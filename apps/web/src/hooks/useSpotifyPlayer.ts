@@ -45,7 +45,6 @@ export function useSpotifyPlayer(token: string | null) {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const playerRef = useRef<any>(null);
 
-  // Poll Spotify Web API for current playback (works across all devices)
   useEffect(() => {
     if (!token) return;
 
@@ -60,20 +59,17 @@ export function useSpotifyPlayer(token: string | null) {
           headers: { Authorization: `Bearer ${token}` },
         });
 
-        // Token is valid — mark connected
         if (!tokenValid) {
           tokenValid = true;
           setSourcePlayback('spotify', { connected: true });
         }
 
         if (res.status === 204) {
-          // Nothing playing — but we're connected
           return;
         }
 
         if (!res.ok) {
           if (res.status === 401) {
-            // Token expired — try refreshing
             const refreshToken = localStorage.getItem('melofy-spotify-refresh-token');
             if (refreshToken) {
               const refreshRes = await fetch('/api/auth/spotify/refresh', {
@@ -107,20 +103,16 @@ export function useSpotifyPlayer(token: string | null) {
           track: mapSpotifyTrack(data, data.progress_ms),
         });
       } catch {
-        // Network error — if we've tried enough times, mark as connected anyway
         if (attempts > 5) {
           setSourcePlayback('spotify', { connected: true });
         }
       }
     };
 
-    // Initial poll
     pollCurrentlyPlaying();
 
-    // Poll every 500ms for smoother position tracking
     pollRef.current = setInterval(pollCurrentlyPlaying, 500);
 
-    // Safety timeout: mark connected after 10s even if no response
     const safetyTimer = setTimeout(() => {
       if (!tokenValid) {
         setSourcePlayback('spotify', { connected: true });
@@ -133,7 +125,6 @@ export function useSpotifyPlayer(token: string | null) {
     };
   }, [token, setSourcePlayback]);
 
-  // Initialize Web Playback SDK as secondary (for active playback if needed)
   useEffect(() => {
     if (!token) return;
 

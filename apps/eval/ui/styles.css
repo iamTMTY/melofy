@@ -6,7 +6,6 @@
 :root {
   --radius: 0.65rem;
 
-  /* Light (fallback; the app defaults to dark) */
   --background: oklch(0.99 0 0);
   --foreground: oklch(0.2 0.01 264);
   --card: oklch(1 0 0);
@@ -36,7 +35,6 @@
 }
 
 .dark {
-  /* Cool near-black content surface, a slightly lighter panel layer, one blue accent. */
   --background: oklch(0.17 0.006 264);
   --foreground: oklch(0.97 0.003 264);
   --card: oklch(0.205 0.007 264);
@@ -112,7 +110,6 @@
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
   }
-  /* Tasteful, thin scrollbars for the dense lists/tables. */
   * {
     scrollbar-width: thin;
     scrollbar-color: var(--border) transparent;

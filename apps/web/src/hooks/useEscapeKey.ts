@@ -2,7 +2,6 @@
 
 import { useEffect } from 'react';
 
-/** Runs `onEscape` while `active` — for dismissing overlays and selections. */
 export function useEscapeKey(active: boolean, onEscape: () => void) {
   useEffect(() => {
     if (!active) return;

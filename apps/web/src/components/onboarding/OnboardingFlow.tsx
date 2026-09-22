@@ -36,7 +36,6 @@ export function OnboardingFlow() {
   const [selectedLanguage, setSelectedLanguage] = useState(preferences.targetLanguage);
 
   const handleConnectSpotify = useCallback(() => {
-    // Already connected before? Skip OAuth and go straight to the app.
     const redirected = startSpotifyConnect();
     if (!redirected) router.push('/');
   }, [router]);

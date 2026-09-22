@@ -6,21 +6,11 @@ import { DEFAULT_COVER } from '@/lib/platform';
 interface AlbumArtBackgroundProps {
   imageUrl?: string;
   children?: React.ReactNode;
-  /**
-   * Lock the surface to the viewport height instead of growing with content.
-   * The background stays fixed and any scrolling happens inside a child region.
-   */
   fixed?: boolean;
-  /**
-   * What to put behind the content. `art` is the blurred cover (default);
-   * `plain` and `black` are for the Minimal / AMOLED presets, which skip the
-   * artwork entirely.
-   */
   variant?: 'art' | 'plain' | 'black';
 }
 
 export function AlbumArtBackground({ imageUrl, children, fixed = false, variant = 'art' }: AlbumArtBackgroundProps) {
-  // Fall back to the default cover so there's always an atmospheric backdrop.
   const bg = imageUrl || DEFAULT_COVER;
   return (
     <div
@@ -32,7 +22,6 @@ export function AlbumArtBackground({ imageUrl, children, fixed = false, variant 
             : ''
       }`}
     >
-      {/* Background Layer — clipped to container */}
       <div className="absolute inset-0 overflow-hidden">
         {variant === 'art' && (
         <AnimatePresence>
@@ -60,7 +49,6 @@ export function AlbumArtBackground({ imageUrl, children, fixed = false, variant 
         <div className="absolute inset-0 bg-noise opacity-[0.015] pointer-events-none" />
       </div>
 
-      {/* Content */}
       <div className={`relative z-10 flex flex-col ${fixed ? 'h-full min-h-0' : 'min-h-[100dvh]'}`}>{children}</div>
     </div>
   );

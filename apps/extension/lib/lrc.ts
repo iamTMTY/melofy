@@ -1,4 +1,3 @@
-// A lyric line as parsed from LRCLIB. `timeMs` is null for unsynced (plain) lyrics.
 export interface LrcLine {
   timeMs: number | null;
   text: string;
@@ -6,7 +5,6 @@ export interface LrcLine {
 
 const TAG_RE = /\[(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?\]/g;
 
-/** Parse LRC (synced) lyrics: `[mm:ss.xx] text`, one timecode (or more) per line. */
 export function parseLrc(raw: string): LrcLine[] {
   const out: LrcLine[] = [];
   for (const line of raw.split('\n')) {
@@ -26,7 +24,6 @@ export function parseLrc(raw: string): LrcLine[] {
   return out.sort((a, b) => (a.timeMs ?? 0) - (b.timeMs ?? 0));
 }
 
-/** Parse plain (unsynced) lyrics into timecode-less lines. */
 export function parsePlain(raw: string): LrcLine[] {
   return raw
     .split('\n')

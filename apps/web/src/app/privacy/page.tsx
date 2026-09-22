@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 
-// TODO: replace with a mailbox you actually monitor (e.g. an alias on temi.codes).
 const CONTACT_EMAIL = 'salaudeen.t@gmail.com';
 const LAST_UPDATED = 'August 25, 2026';
 

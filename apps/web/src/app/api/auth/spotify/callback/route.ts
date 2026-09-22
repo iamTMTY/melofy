@@ -72,7 +72,6 @@ export async function GET(req: NextRequest) {
     return redirectResponse;
   }
 
-  // Exchange authorization code for tokens
   const codeVerifier = state || '';
 
   try {
@@ -94,7 +93,6 @@ export async function GET(req: NextRequest) {
 
     const tokens = await tokenResponse.json();
 
-    // Redirect back to the app with tokens in the query string.
     const callbackUrl = new URL('/', APP_ORIGIN);
     callbackUrl.searchParams.set('spotify_connected', 'true');
     callbackUrl.searchParams.set('access_token', tokens.access_token);

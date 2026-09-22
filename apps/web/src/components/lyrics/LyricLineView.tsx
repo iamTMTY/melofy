@@ -38,7 +38,6 @@ export function LyricLineView({ lyric, isActive, isPast, showOriginal }: LyricLi
         isActive ? 'text-white' : isPast ? 'text-white/40' : 'text-white/20'
       }`}
     >
-      {/* Active line highlight */}
       {isActive && (
         <motion.div
           layoutId="active-line"
@@ -52,7 +51,6 @@ export function LyricLineView({ lyric, isActive, isPast, showOriginal }: LyricLi
       )}
 
       <div className="relative space-y-1">
-        {/* Translated line (primary) */}
         <p
           className={`${fontSizeClass} font-medium leading-snug tracking-tight ${
             isActive ? 'drop-shadow-sm' : ''
@@ -61,7 +59,6 @@ export function LyricLineView({ lyric, isActive, isPast, showOriginal }: LyricLi
           {lyric.translated || lyric.original}
         </p>
 
-        {/* Original line (secondary, shown based on toggle) */}
         {showOriginal && lyric.translated && lyric.translated !== lyric.original && (
           <p
             className={`text-sm leading-snug text-white/60 ${

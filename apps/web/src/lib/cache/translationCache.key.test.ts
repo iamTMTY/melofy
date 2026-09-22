@@ -1,8 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { translationCacheKeyForTest as makeKey } from './translationCache';
 
-// Regression (Mira review): a song-level CLIENT key shadows the recording-aware
-// server cache — the client answers first, so the server never gets asked.
 describe('client cache key recording identity', () => {
   it('separates two masters of the same song', () => {
     expect(makeKey('Sola Allyson', 'Eji Owuro', 'en', { album: 'A', durationMs: 386_000 })).not.toBe(

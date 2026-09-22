@@ -23,22 +23,16 @@ export function useTranslation() {
     clearLyrics,
   } = useMelofy();
 
-  // Tracks the in-flight request so a song/language switch can abort it before
-  // starting the next one — otherwise a superseded stream would keep writing
-  // stale lines into the view.
   const abortRef = useRef<AbortController | null>(null);
 
   const fetchTranslation = useCallback(async () => {
     const { track } = playback;
     if (!track) return;
     const lang = preferences.targetLanguage;
-    // Same identity the server keys on — a song-level client entry would shadow
-    // the recording-aware server cache and serve another master's translation.
     const recording = { album: track.album, durationMs: track.durationMs };
 
     abortRef.current?.abort();
 
-    // Client cache (IndexedDB) FIRST — a hit means no network and no model call.
     const cached = await getCachedTranslation(track.artist, track.title, lang, recording);
     if (cached) {
       if (cached.negative) {
@@ -58,7 +52,6 @@ export function useTranslation() {
     setLoading(true);
 
     try {
-      // Fast "no lyrics" check before committing to the (streaming) translation.
       const lyricsRes = await fetch(
         `/api/lyrics/search?artist=${encodeURIComponent(track.artist)}&title=${encodeURIComponent(track.title)}` +
           (track.durationMs ? `&durationMs=${track.durationMs}` : '') +
@@ -87,7 +80,6 @@ export function useTranslation() {
       setLoading(false);
       setTranslating(true);
 
-      // Attach the user's BYOK key, RSA-OAEP-encrypted for the server (null if none).
       let encryptedKey = await getEncryptedKeyForRequest();
       const postTranslate = (ek: string | null) =>
         fetch('/api/translation/translate', {
@@ -106,8 +98,6 @@ export function useTranslation() {
 
       let res = await postTranslate(encryptedKey);
 
-      // If the server couldn't decrypt our key (ephemeral keypair rotated on a
-      // restart), refresh its public key and retry once.
       if (!res.ok && encryptedKey) {
         const peek = await res.clone().json().catch(() => null);
         if (peek?.code === 'BYOK_DECRYPT_FAILED') {
@@ -123,7 +113,6 @@ export function useTranslation() {
         return;
       }
 
-      // Consume the NDJSON stream, painting lines as they arrive.
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       const accumulated: LyricLine[] = [];
@@ -134,7 +123,6 @@ export function useTranslation() {
       let serverErrorCode: string | null = null;
       let finalized = false;
 
-      // Throttle re-renders — lines can arrive dozens per second.
       let lastFlush = 0;
       const flush = () => {
         const now = performance.now();
@@ -199,7 +187,7 @@ export function useTranslation() {
         return;
       }
 
-      if (finalized) return; // 'full' (cache hit) already set final state
+      if (finalized) return;
 
       if (accumulated.length > 0) {
         setTranslatedLyrics(accumulated, hash, sourceLanguage);
@@ -217,7 +205,6 @@ export function useTranslation() {
         setTranslating(false);
       }
     } catch (error) {
-      // A superseded request was aborted on purpose — stay silent.
       if (error instanceof DOMException && error.name === 'AbortError') return;
       setTranslationError('Network error — check your connection and try again.');
       setLoading(false);
@@ -239,7 +226,6 @@ export function useTranslation() {
           body: JSON.stringify({ hash: storedHash }),
         });
       }
-      // Drop the client copy so the next play re-fetches a fresh translation.
       const track = playback.track;
       if (track) {
         await deleteCachedTranslation(track.artist, track.title, preferences.targetLanguage, {

@@ -1,12 +1,5 @@
 import { envGet } from './env.ts';
 
-// Raw model call used for JUDGING (and optionally reference generation). Routes
-// by model name, mirroring the app's own convention:
-//   claude-*        -> Anthropic
-//   contains "/"    -> OpenRouter
-//   otherwise       -> OpenAI
-// Candidate TRANSLATIONS do NOT go through here — those hit the running app so
-// the eval exercises the real product pipeline.
 export async function callModel(
   model: string,
   system: string,

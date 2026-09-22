@@ -5,16 +5,9 @@ import { requestLyrics, requestTranslation, getCachedTranslation, setCachedTrans
 import { PREFS_KEY, DEFAULT_PREFS, type Prefs } from '../lib/config';
 import type { LrcLine } from '../lib/lrc';
 
-// The lyrics content itself — rendered INTO YouTube Music's native lyrics tab
-// (no FAB, no panel chrome). Settings live in the popup and are read here via
-// PREFS_KEY, reactively, so changing them applies live.
-
 // Highlight slightly BEFORE the timestamp to cancel interpolation+paint latency
 // so the active line lands on the beat. Tunable.
 const SYNC_LOOKAHEAD_MS = 200;
-// Recording identity, not just song identity: the lyrics lookup keys off album +
-// duration to pick the right master, so two recordings of the same song must be
-// two different keys or the previous one's timings stay on screen.
 const trackKey = (t: { artist: string; title: string; album?: string; durationMs?: number }) =>
   `${t.artist} — ${t.title} — ${t.album ?? ''} — ${t.durationMs ?? ''}`;
 
@@ -31,7 +24,6 @@ export function LyricsView() {
   const track = np?.track;
   const key = track ? trackKey(track) : '';
 
-  // Prefs: load + stay in sync with popup edits.
   useEffect(() => {
     browser.storage.local.get(PREFS_KEY).then((r) => {
       const p = r[PREFS_KEY] as Partial<Prefs> | undefined;
@@ -46,8 +38,6 @@ export function LyricsView() {
     return () => browser.storage.onChanged.removeListener(onChanged);
   }, []);
 
-  // Fetch lyrics on track change.
-  //
   // NOTE: requestLyrics() is a runtime MESSAGE to background.ts, which fetches
   // lrclib.net directly and answers { ok, lines, synced }. It never touches the
   // web app's /api/lyrics/search, so that route's 422-on-unsynced contract does
@@ -72,8 +62,6 @@ export function LyricsView() {
         setError(res.error || "I couldn't find lyrics for this track.");
       }
     }).catch((err) => {
-      // A sleeping/erroring MV3 worker rejects the message instead of replying.
-      // Without this the view sits on "Loading lyrics…" forever with no retry.
       if (cancelled) return;
       console.error('[Melofy] lyrics request failed:', err);
       setStatus('error');
@@ -82,7 +70,6 @@ export function LyricsView() {
     return () => { cancelled = true; };
   }, [key]);
 
-  // Translate (cache first) when enabled and lyrics are present.
   useEffect(() => {
     if (!track || !prefs.autoTranslate || lines.length === 0) return;
     let cancelled = false;
@@ -94,8 +81,6 @@ export function LyricsView() {
       setStatus('translating');
       const res = await requestTranslation({
         lines: lines.map((l) => l.text),
-        // Send the real LRC timings so the shared server cache stores THOSE and
-        // not placeholders — the web app reads timings out of that same cache.
         timeMs: lines.map((l) => l.timeMs),
         targetLanguage: prefs.targetLanguage,
         artist: track.artist,
@@ -113,8 +98,6 @@ export function LyricsView() {
         setError(res.error || 'Something went wrong translating this song.');
       }
     })().catch((err) => {
-      // Same hole the lyrics effect had: a rejected message (sleeping MV3 worker,
-      // network drop) would otherwise leave the view stuck on "translating".
       if (cancelled) return;
       console.error('[Melofy] translation request failed:', err);
       setStatus('error');
@@ -123,8 +106,6 @@ export function LyricsView() {
     return () => { cancelled = true; };
   }, [key, lines, prefs.autoTranslate, prefs.targetLanguage]);
 
-  // Smooth playback clock: re-anchor {pos, at} only when the reading changes, then
-  // dead-reckon with wall-clock between anchors. 100ms tick drives re-renders.
   const [, forceTick] = useState(0);
   useEffect(() => {
     const id = window.setInterval(() => forceTick((n) => n + 1), 100);
@@ -154,7 +135,6 @@ export function LyricsView() {
   }, [activeIndex]);
 
   const showTranslation = prefs.autoTranslate && !!translated;
-  // 'learn' flips the pair so the original leads; 'both' gives them equal weight.
   const originalLeads = prefs.readingPriority === 'learn';
 
   return (

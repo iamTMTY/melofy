@@ -8,10 +8,6 @@ import { SourceSwitcher } from './SourceSwitcher';
 import { PRESET_ORDER, PRESETS, READING_PRIORITIES } from '@/lib/theme';
 import type { ReadingPriority } from '@/lib/types';
 
-// Consolidates the now-playing controls into one sheet — used on mobile where
-// they don't fit in a row. Translucent material + spring, dismissed by tapping
-// the scrim.
-//
 // Portaled to <body>: it's mounted from inside the now-playing bar, whose
 // `backdrop-filter` would otherwise become the containing block for this
 // position:fixed overlay (pinning it to the header instead of the viewport).
@@ -34,13 +30,12 @@ export function PlayerSettingsModal({ onClose }: { onClose: () => void }) {
         exit={{ opacity: 0, y: 24, scale: 0.98 }}
         transition={{ type: 'spring', bounce: 0, duration: 0.35 }}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md rounded-t-3xl sm:rounded-3xl bg-white/90 dark:bg-[#1c1c1e]/90 backdrop-blur-2xl border border-black/[0.06] dark:border-white/10 shadow-2xl p-6 pb-8"
+        className="w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl bg-white/90 dark:bg-[#1c1c1e]/90 backdrop-blur-2xl border border-black/[0.06] dark:border-white/10 shadow-2xl p-6 pb-8"
       >
         <div className="mx-auto mb-5 h-1 w-9 rounded-full bg-black/10 dark:bg-white/15 sm:hidden" />
         <h2 className="text-lg font-bold tracking-tight text-gray-900 dark:text-white mb-5">Lyrics settings</h2>
 
         <div className="flex flex-col gap-5">
-          {/* Theme preset — a bundle of background / accent / focus / density */}
           <div className="flex flex-col gap-2">
             <span className="text-sm font-medium text-gray-600 dark:text-white/60">Theme</span>
             <div className="grid grid-cols-2 gap-2">
@@ -70,7 +65,6 @@ export function PlayerSettingsModal({ onClose }: { onClose: () => void }) {
             </div>
           </div>
 
-          {/* Reading priority — which line leads */}
           <div className="flex flex-col gap-2">
             <span className="text-sm font-medium text-gray-600 dark:text-white/60">Reading priority</span>
             <div className="flex items-center rounded-full bg-black/[0.05] p-0.5 dark:bg-white/[0.08]">
@@ -93,18 +87,14 @@ export function PlayerSettingsModal({ onClose }: { onClose: () => void }) {
             </div>
           </div>
 
-          {/* Language — compact (anchors right, in bounds) + dropUp (bottom sheet
-              has no room below, so the list opens above the trigger) */}
           <Row label="Translate to">
             <LanguagePicker compact dropUp />
           </Row>
 
-          {/* Source (renders nothing unless 2+ platforms connected) */}
           <Row label="Streaming source">
             <SourceSwitcher />
           </Row>
 
-          {/* Show original */}
           <Row label="Show original lyrics">
             <button
               onClick={() => setPreferences({ showOriginalLyrics: !preferences.showOriginalLyrics })}
@@ -123,7 +113,6 @@ export function PlayerSettingsModal({ onClose }: { onClose: () => void }) {
             </button>
           </Row>
 
-          {/* Font size */}
           <Row label="Text size">
             <div className="flex items-center rounded-full bg-black/[0.05] p-0.5 dark:bg-white/[0.08]">
               {(['small', 'medium', 'large'] as const).map((size) => (

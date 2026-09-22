@@ -29,8 +29,6 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Words without timings can't drive the highlight, and inventing timings makes
-    // the whole view wrong. Say so instead.
     if (!synced) {
       return NextResponse.json(
         { error: "I found lyrics for this track, but they aren't synced.", code: 'NOT_SYNCED' },

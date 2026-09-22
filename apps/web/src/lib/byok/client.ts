@@ -1,5 +1,3 @@
-// Client side of "bring your own key".
-//
 // At rest ("remember on this device"): the key is encrypted with AES-GCM using a
 //   NON-EXTRACTABLE CryptoKey kept in IndexedDB, and the ciphertext lives in
 //   localStorage. A snoop in DevTools sees ciphertext, not the key. (This does
@@ -9,26 +7,23 @@
 //   ever leaves the browser (belt-and-suspenders over HTTPS; keeps it out of logs).
 // The plaintext key is NEVER sent to, or stored by, the server.
 
-const LS_KEY = 'melofy-byok'; // localStorage: { iv, ct } when "remembered"
+const LS_KEY = 'melofy-byok';
 const IDB_NAME = 'melofy-byok';
 const IDB_STORE = 'keys';
 const WRAP_ID = 'wrap';
 
 const isBrowser = () => typeof window !== 'undefined' && !!window.crypto?.subtle;
 
-// In-memory key for the "don't remember" case (cleared on reload/tab close).
 let sessionKey: string | null = null;
 
-// --- base64 helpers ---------------------------------------------------------
 const toB64 = (buf: ArrayBuffer) => btoa(String.fromCharCode(...new Uint8Array(buf)));
 function fromB64(s: string): Uint8Array<ArrayBuffer> {
   const bin = atob(s);
-  const arr = new Uint8Array(bin.length); // ArrayBuffer-backed (satisfies BufferSource)
+  const arr = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
   return arr;
 }
 
-// --- at-rest wrap key (AES-GCM, non-extractable, in IndexedDB) --------------
 function openKeyDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const r = indexedDB.open(IDB_NAME, 1);
@@ -58,20 +53,15 @@ async function getOrCreateWrapKey(): Promise<CryptoKey> {
   return key;
 }
 
-// --- public API -------------------------------------------------------------
-
-/** True if a key is available (session or remembered) — no decryption needed. */
 export function hasApiKey(): boolean {
   if (sessionKey) return true;
   return isBrowser() && !!localStorage.getItem(LS_KEY);
 }
 
-/** Whether the stored key persists across reloads (remembered) vs session-only. */
 export function isRemembered(): boolean {
   return isBrowser() && !!localStorage.getItem(LS_KEY);
 }
 
-/** Store the user's key. `remember` → encrypted at rest; otherwise in memory only. */
 export async function setApiKey(rawKey: string, remember: boolean): Promise<void> {
   const key = rawKey.trim();
   if (!isBrowser() || !key) return;
@@ -87,7 +77,6 @@ export async function setApiKey(rawKey: string, remember: boolean): Promise<void
   }
 }
 
-/** Retrieve the plaintext key (decrypting the at-rest copy if needed), or null. */
 export async function getApiKey(): Promise<string | null> {
   if (sessionKey) return sessionKey;
   if (!isBrowser()) return null;
@@ -103,13 +92,11 @@ export async function getApiKey(): Promise<string | null> {
   }
 }
 
-/** Forget the key (both session and remembered copies). */
 export function clearApiKey(): void {
   sessionKey = null;
   if (isBrowser()) localStorage.removeItem(LS_KEY);
 }
 
-// --- in-transit encryption (RSA-OAEP for the server's public key) -----------
 let serverPubKey: CryptoKey | null = null;
 
 function pemToDer(pem: string): Uint8Array<ArrayBuffer> {
@@ -132,11 +119,6 @@ async function getServerPublicKey(force = false): Promise<CryptoKey> {
   return serverPubKey;
 }
 
-/**
- * The encrypted key to attach to a translate request, or null if the user has no
- * BYOK key set. `refresh` re-fetches the server public key (used to retry once
- * after a BYOK_DECRYPT_FAILED, e.g. the server rotated its ephemeral keypair).
- */
 export async function getEncryptedKeyForRequest(refresh = false): Promise<string | null> {
   if (!isBrowser()) return null;
   const raw = await getApiKey();

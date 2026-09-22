@@ -23,7 +23,6 @@ export function NowPlayingBar() {
   return (
     <header className="relative z-40 flex-shrink-0 glass-surface-heavy border-b border-black/[0.06] dark:border-white/[0.06]">
       <div className="mx-auto flex max-w-3xl items-center gap-3.5 px-4 py-3 sm:px-6">
-        {/* Artwork */}
         <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-xl shadow-md ring-1 ring-black/5 dark:ring-white/10">
           <Image
             src={track.albumArtUrl || DEFAULT_COVER}
@@ -48,7 +47,6 @@ export function NowPlayingBar() {
           )}
         </div>
 
-        {/* Meta */}
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-[15px] font-semibold leading-tight tracking-[-0.01em] text-gray-900 dark:text-white">
             {track.title}
@@ -58,7 +56,6 @@ export function NowPlayingBar() {
           </p>
         </div>
 
-        {/* Controls — inline on desktop */}
         <div className="hidden flex-shrink-0 items-center gap-2 sm:flex">
           <SourceSwitcher />
           <LanguagePicker compact />
@@ -94,7 +91,6 @@ export function NowPlayingBar() {
           </div>
         </div>
 
-        {/* Controls — settings gear (all sizes; it's the only way to theme) */}
         <button
           onClick={() => setSettingsOpen(true)}
           aria-label="Lyrics settings"
@@ -107,7 +103,6 @@ export function NowPlayingBar() {
         </button>
       </div>
 
-      {/* Playback progress */}
       <div className="absolute inset-x-0 bottom-0 h-[3px] bg-black/[0.06] dark:bg-white/[0.06]">
         <div
           className="h-full bg-melofy-500 transition-[width] duration-500 ease-linear"

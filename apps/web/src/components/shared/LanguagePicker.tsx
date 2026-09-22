@@ -8,10 +8,7 @@ import { GlobeIcon } from './icons/GlobeIcon';
 import { CheckIcon } from './icons/CheckIcon';
 
 interface LanguagePickerProps {
-  /** Compact trigger for dense chrome like the now-playing bar. */
   compact?: boolean;
-  /** Open the dropdown ABOVE the trigger — for bottom sheets where there's no
-   *  room below (otherwise the list is clipped off the bottom of the screen). */
   dropUp?: boolean;
 }
 
@@ -35,7 +32,6 @@ export function LanguagePicker({ compact = false, dropUp = false }: LanguagePick
     [setPreferences]
   );
 
-  // Dismiss on outside pointer / Escape, and wire up keyboard navigation.
   useEffect(() => {
     if (!open) return;
 
@@ -68,7 +64,6 @@ export function LanguagePicker({ compact = false, dropUp = false }: LanguagePick
     };
   }, [open, activeIdx, select]);
 
-  // Open anchored to the current selection and scroll it into view.
   useLayoutEffect(() => {
     if (!open) return;
     setActiveIdx(selectedIndex < 0 ? 0 : selectedIndex);

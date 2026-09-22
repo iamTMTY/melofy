@@ -11,11 +11,6 @@ const META = Object.fromEntries(SERVICES.map((s) => [s.id, { name: s.name, color
   { name: string; color: string }
 >;
 
-/**
- * Switches which streaming platform the /playing screen follows. Only rendered
- * when 2+ platforms are connected — otherwise there's nothing to switch. Each
- * option previews that platform's current track (art + title + artist).
- */
 export function SourceSwitcher() {
   const { sources, activeSource, setActiveSource } = useMelofy();
   const [open, setOpen] = useState(false);

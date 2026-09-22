@@ -3,7 +3,6 @@ name: Build & Deploy Melofy
 on:
   push:
     branches: [main]
-    # Only rebuild when the web app / shared code / image definition changes.
     paths:
       - 'apps/web/**'
       - 'packages/**'
@@ -73,8 +72,6 @@ jobs:
             if [ "$FREE_MB" -lt 2048 ]; then
               echo "Refusing to deploy: ${FREE_MB}MB free on / (need 2048MB)."; docker system df; exit 1
             fi
-            # A corrupt partial layer (interrupted download, IO hiccup) fails the
-            # integrity check once and re-downloads cleanly — so retry the pull.
             for i in 1 2 3; do
               docker compose --env-file .env.production -f docker-compose.app.yml pull web && break
               echo "pull attempt $i failed — retrying in 15s"; sleep 15

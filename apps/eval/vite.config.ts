@@ -3,8 +3,6 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
-// The UI dev server (5174) proxies /api to the local eval API server (5175).
-// The eval API server in turn calls the running Melofy app (default :3009).
 export default defineConfig({
   root: 'ui',
   plugins: [react(), tailwindcss()],

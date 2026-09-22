@@ -4,10 +4,6 @@ import type { NextRequest } from 'next/server';
 import { getRedisClient } from '@/lib/db/redis';
 import { config } from '@/lib/config';
 
-// Per-IP daily limit on NEW translations (a cache miss that actually calls the
-// model). Cache hits and "no lyrics" never reach here, so they never count.
-// No auth: identity is the client IP, hashed for privacy.
-
 export function getClientIp(req: NextRequest): string {
   const xff = req.headers.get('x-forwarded-for');
   if (xff) return xff.split(',')[0].trim();
@@ -21,17 +17,12 @@ function hashIp(ip: string): string {
   return crypto.createHash('sha256').update(norm + config.rateLimitSalt).digest('hex').slice(0, 32);
 }
 
-/**
- * A stable, anonymous per-caller id for analytics — the SAME hashed-IP value the
- * rate limiter keys on, so we never send a raw IP to PostHog. Not tied to any
- * account (there are none).
- */
 export function anonymousId(req: NextRequest): string {
   return `ip_${hashIp(getClientIp(req))}`;
 }
 
 function utcDateStamp(): string {
-  return new Date().toISOString().slice(0, 10); // YYYY-MM-DD (UTC)
+  return new Date().toISOString().slice(0, 10);
 }
 
 function nextUtcMidnight(): number {
@@ -43,15 +34,9 @@ export interface RateLimitResult {
   allowed: boolean;
   remaining: number;
   limit: number;
-  resetAt: number; // epoch ms of next UTC midnight
+  resetAt: number;
 }
 
-/**
- * Consume one unit of the caller's daily translation budget. Call this only when
- * about to perform a NEW translation. Atomic (Redis INCR). Fails OPEN on any
- * Redis error — a provider-level quota is the hard backstop, and we'd rather not
- * block real users over an infra blip.
- */
 export async function consumeTranslation(req: NextRequest): Promise<RateLimitResult> {
   const limit = config.dailyTranslationLimit;
   const resetAt = nextUtcMidnight();
@@ -61,7 +46,7 @@ export async function consumeTranslation(req: NextRequest): Promise<RateLimitRes
     const redis = getRedisClient();
     const key = `rl:trans:${hashIp(getClientIp(req))}:${utcDateStamp()}`;
     const count = await redis.incr(key);
-    if (count === 1) await redis.expire(key, 60 * 60 * 48); // 48h GC; the date-stamped key resets daily
+    if (count === 1) await redis.expire(key, 60 * 60 * 48);
     if (count > limit) return { allowed: false, remaining: 0, limit, resetAt };
     return { allowed: true, remaining: limit - count, limit, resetAt };
   } catch (err) {
@@ -71,21 +56,11 @@ export async function consumeTranslation(req: NextRequest): Promise<RateLimitRes
 }
 
 export interface RateLimitOptions {
-  /** Redis key namespace for this route, e.g. 'lyrics' or 'flag'. */
   bucket: string;
-  /** Max requests allowed per window, per caller IP. */
   limit: number;
-  /** Window length in seconds. */
   windowSec: number;
 }
 
-/**
- * General fixed-window, per-IP request limit for an API route. Returns a ready-
- * to-return 429 NextResponse when the caller is over budget, or null to proceed.
- * This is the coarse abuse/DoS guard for ALL endpoints; the daily model-call
- * budget (consumeTranslation) is separate and stricter. Fails OPEN on any Redis
- * error so an infra blip never takes the API offline.
- */
 export async function enforceRateLimit(
   req: NextRequest,
   { bucket, limit, windowSec }: RateLimitOptions

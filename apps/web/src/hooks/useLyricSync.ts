@@ -13,9 +13,6 @@ export function useLyricSync(lyrics: LyricLine[]) {
   const containerRef = useRef<HTMLDivElement>(null);
   const activeIndexRef = useRef(-1);
 
-  // Playback position only refreshes every ~500ms, so we keep the last known
-  // position plus the timestamp it arrived and interpolate between updates.
-  // This keeps the active-line detection smooth instead of stepping.
   const clockRef = useRef({ pos: 0, at: 0, playing: false });
   useEffect(() => {
     clockRef.current = {
@@ -25,8 +22,6 @@ export function useLyricSync(lyrics: LyricLine[]) {
     };
   }, [playback.positionMs, playback.isPlaying]);
 
-  // Single RAF loop (set up once per lyric set) that resolves the active line
-  // from the interpolated position and pushes it into shared state.
   useEffect(() => {
     if (lyrics.length === 0) return;
 
@@ -35,8 +30,6 @@ export function useLyricSync(lyrics: LyricLine[]) {
 
     const tick = () => {
       const { pos, at, playing } = clockRef.current;
-      // Lead by SYNC_LOOKAHEAD_MS, and clamp the extrapolation so a stalled
-      // position update (Spotify polls only ~500ms) can't drift the line ahead.
       const estimated = playing
         ? pos + Math.min(performance.now() - at, 2000) + SYNC_LOOKAHEAD_MS
         : pos;
@@ -61,8 +54,6 @@ export function useLyricSync(lyrics: LyricLine[]) {
     return () => cancelAnimationFrame(raf);
   }, [lyrics, setActiveLineIndex]);
 
-  // Keep the active line centered in the scroll container — the Spotify /
-  // Apple Music behavior. Runs only when the active line actually changes.
   useEffect(() => {
     const container = containerRef.current;
     if (!container || activeLineIndex < 0) return;

@@ -51,10 +51,8 @@ export interface PlaybackState {
   connected: boolean;
 }
 
-/** Bundled look-and-feel: background, accent source, focus blur, density. */
 export type ThemePreset = 'classic' | 'immersive' | 'minimal' | 'amoled';
 
-/** Which line leads — the translation, the original, or both equally. */
 export type ReadingPriority = 'understand' | 'learn' | 'both';
 
 export interface UserPreferences {
@@ -68,10 +66,6 @@ export interface UserPreferences {
   readingPriority: ReadingPriority;
 }
 
-/**
- * A snapshot of what's playing, observed by the browser extension (and later
- * bridged to the web app). `capturedAt` lets consumers interpolate position.
- */
 export interface NowPlaying {
   track: TrackMetadata;
   positionMs: number;

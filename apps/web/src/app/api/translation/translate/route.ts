@@ -16,10 +16,8 @@ const TranslateRequestSchema = z.object({
   artist: z.string().min(1),
   title: z.string().min(1),
   targetLanguage: z.string().min(2).max(5),
-  // Duration + album let LRCLIB return the LRC synced to THIS recording (correct timing).
   durationMs: z.number().positive().optional(),
   album: z.string().optional(),
-  // Optional BYOK key, RSA-OAEP-encrypted for this server's public key.
   encryptedKey: z.string().optional(),
 });
 
@@ -35,8 +33,6 @@ export async function POST(req: NextRequest) {
 
   const { artist, title, targetLanguage, durationMs, album, encryptedKey } = parsed.data;
 
-  // Everything that can fail with a real HTTP status happens BEFORE the stream
-  // opens (cache lookup, lyrics fetch, gate) — all via the shared policy.
   const { hash, lyrics: cachedLyrics, sourceLanguage: cachedSourceLanguage } = await lookupCache(
     artist,
     title,
@@ -81,7 +77,6 @@ export async function POST(req: NextRequest) {
   const stream = new ReadableStream({
     async start(controller) {
       try {
-        // Cache hit → deliver the whole set in one shot.
         if (cachedLyrics) {
           send(controller, { type: 'full', lyrics: cachedLyrics, hash, sourceLanguage: cachedSourceLanguage, cached: true });
           controller.close();
@@ -95,15 +90,14 @@ export async function POST(req: NextRequest) {
           return;
         }
 
-        // Fresh translation → stream each line as it arrives.
         const { translatedLyrics, sourceLanguage } = await translateLyricsStreaming(
           originalLyrics,
           targetLanguage,
           (line) => send(controller, { type: 'line', line }),
           artist,
           title,
-          undefined, // model (use configured default)
-          userKey // BYOK override when present
+          undefined,
+          userKey
         );
 
         await persistTranslation(hash, artist, title, targetLanguage, sourceLanguage, translatedLyrics);

@@ -25,7 +25,6 @@ export function LyricControls() {
       className="absolute bottom-0 left-0 right-0 z-30 px-4 pb-6"
     >
       <div className="glass-surface mx-auto flex max-w-md items-center justify-between rounded-2xl px-4 py-2.5">
-        {/* Show original toggle */}
         <button
           onClick={() =>
             setPreferences({ showOriginalLyrics: !preferences.showOriginalLyrics })
@@ -50,7 +49,6 @@ export function LyricControls() {
           </div>
         </button>
 
-        {/* Font size */}
         <div className="flex items-center gap-0.5">
           {(['small', 'medium', 'large'] as const).map((size) => {
             const isActive = preferences.fontSize === size;
@@ -72,7 +70,6 @@ export function LyricControls() {
           })}
         </div>
 
-        {/* Flag inaccurate translation */}
         {translationHash && (
           <button
             onClick={flagTranslation}

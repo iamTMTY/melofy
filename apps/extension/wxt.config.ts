@@ -2,9 +2,6 @@ import { defineConfig } from 'wxt';
 import tailwindcss from '@tailwindcss/vite';
 import { MELOFY_MATCH_PATTERNS } from './lib/config';
 
-// WXT generates the MV3 manifest from this config + the files in entrypoints/.
-// Icons are auto-discovered from public/icon/{16,32,48,96,128}.png.
-// https://wxt.dev
 export default defineConfig({
   modules: ['@wxt-dev/module-react'],
   manifest: ({ browser }) => ({
@@ -19,8 +16,6 @@ export default defineConfig({
     host_permissions: [
       '*://music.youtube.com/*',
       'https://lrclib.net/*',
-      // The Melofy web/API origin(s) — single source in lib/config.ts,
-      // overridable with WXT_MELOFY_ORIGIN for production builds.
       ...MELOFY_MATCH_PATTERNS,
     ],
     // Firefox requires a stable extension ID for AMO signing/distribution.

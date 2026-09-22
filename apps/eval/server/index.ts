@@ -16,10 +16,7 @@ fs.mkdirSync(RUNS_DIR, { recursive: true });
 const PORT = Number(process.env.EVAL_API_PORT || 5175);
 const PRODUCT_URL = process.env.PRODUCT_URL || 'http://localhost:3009';
 
-// Preselected in the UI; also the fallback if a run arrives with no models.
-// All models route through OpenRouter (see harness/providers.ts).
 const DEFAULT_MODELS = ['google/gemini-3.7-flash', 'google/gemini-2.5-flash'];
-// Keep the judge a DIFFERENT family than the candidates when you can.
 const DEFAULT_JUDGE = 'anthropic/claude-sonnet-5';
 
 interface ModelOption {
@@ -28,8 +25,6 @@ interface ModelOption {
   label: string;
 }
 
-// Used when the OpenRouter catalogue can't be fetched (no key / offline) so the
-// UI is never empty. Real IDs, still selectable.
 const FALLBACK_MODELS: ModelOption[] = [
   { id: 'google/gemini-2.5-flash-lite', provider: 'openrouter', label: 'Google: Gemini 2.5 Flash Lite' },
   { id: 'google/gemini-2.5-flash', provider: 'openrouter', label: 'Google: Gemini 2.5 Flash' },
@@ -39,7 +34,6 @@ const FALLBACK_MODELS: ModelOption[] = [
   { id: 'openai/gpt-5.1', provider: 'openrouter', label: 'OpenAI: GPT-5.1' },
 ];
 
-// Remembered the first time the OpenRouter catalogue is fetched successfully.
 let openrouterCache: ModelOption[] | null = null;
 
 async function withRetry(fn: () => Promise<ModelOption[] | null>, tries = 2): Promise<ModelOption[] | null> {
@@ -161,7 +155,7 @@ app.post('/api/run', async (req, res) => {
 
   try {
     const results = await runEval(cfg, send, controller.signal, runId);
-    await flushLangfuse(); // push traces + scores before we finish
+    await flushLangfuse();
     const { perModel, perLanguage } = summarize(results, cfg.models);
     const summary: RunSummary = {
       runId,
@@ -183,7 +177,6 @@ app.post('/api/run', async (req, res) => {
   }
 });
 
-// In a built deployment (npm run build && npm start) serve the static UI too.
 if (fs.existsSync(DIST_DIR)) {
   app.use(express.static(DIST_DIR));
   app.get('*', (_req, res) => res.sendFile(path.join(DIST_DIR, 'index.html')));

@@ -48,7 +48,6 @@ export function PlayingView() {
   const { fetchTranslation, dismissError } = useTranslation();
   const { containerRef } = useLyricSync(translatedLyrics);
   const [spotifyToken, setSpotifyToken] = useState<string | null>(null);
-  // Contiguous run of lyric indices picked for sharing (empty = not selecting).
   const [selected, setSelected] = useState<number[]>([]);
   const [shareOpen, setShareOpen] = useState(false);
   const lastFetchKeyRef = useRef<string | null>(null);
@@ -61,13 +60,9 @@ export function PlayingView() {
     }
   }, []);
 
-  // Both providers run so BOTH platforms populate (needed for the source switcher);
-  // the active source alone drives the lyrics below.
   useSpotifyPlayer(spotifyToken);
   useYouTubeMusicPlayer();
 
-  // Direct load/refresh on /playing with no chosen source → default to a connected
-  // one (preferring whichever is actually playing). A persisted choice is respected.
   useEffect(() => {
     if (activeSource) return;
     const order: MusicService[] = ['spotify', 'youtube_music', 'apple_music'];
@@ -76,15 +71,10 @@ export function PlayingView() {
     if (best) setActiveSource(best);
   }, [sources, activeSource, setActiveSource]);
 
-  // Refetch whenever the song OR the target language changes. We clear the old
-  // lyrics first so the skeleton takes over immediately — no stale lyrics linger
-  // under the new track/language while the translation loads.
   useEffect(() => {
     const track = playback.track;
     if (!track) return;
 
-    // Album + duration are part of the identity: they pick the master whose LRC
-    // we fetch, so a different recording of the same song must refetch.
     const key = [
       track.artist,
       track.title,
@@ -121,14 +111,11 @@ export function PlayingView() {
   const inactiveSize = FONT_SIZE_MAP_INACTIVE[fs] || 'text-xl';
   const albumArt = track?.albumArtUrl;
 
-  // Look-and-feel comes entirely from the chosen preset + reading priority.
   const preset = presetConfig(preferences.themePreset);
   const layout = readingLayout(preferences.readingPriority);
   const accent = useAdaptiveAccent(albumArt, preset.adaptiveAccent);
   const alignClass = preset.align === 'left' ? 'text-left' : 'text-center';
 
-  // Which text goes in the big slot vs. underneath — shared by the rendered
-  // lyrics and the share card so a snippet always matches what's on screen.
   const partsFor = (lyric: (typeof translatedLyrics)[number]): ShareLine => {
     const primary = layout.lead === 'original' ? lyric.original : lyric.translated || lyric.original;
     const secondaryRaw = layout.lead === 'original' ? lyric.translated : lyric.original;
@@ -138,7 +125,6 @@ export function PlayingView() {
 
   const toggleLine = (idx: number) => setSelected((cur) => toggleShareSelection(cur, idx));
 
-  // Escape backs out of the selection; while the share sheet is up it owns the key.
   useEscapeKey(selected.length > 0 && !shareOpen, () => {
     setSelected([]);
     // Clearing the selection doesn't drop DOM focus, and a focused lyric keeps
@@ -146,9 +132,6 @@ export function PlayingView() {
     (document.activeElement as HTMLElement | null)?.blur();
   });
 
-  // A selection is always contiguous, so it can be drawn as a single box behind
-  // the lines instead of one box per line (which shows a seam at every join).
-  // Measured from the DOM so the box can animate its top/height as the run grows.
   const [selectionBox, setSelectionBox] = useState<{ top: number; height: number } | null>(null);
   useEffect(() => {
     const container = containerRef.current;
@@ -171,12 +154,7 @@ export function PlayingView() {
     return () => window.removeEventListener('resize', measure);
   }, [selected, translatedLyrics, fs, preset.density, showOriginal, layout.lead, containerRef]);
 
-  // Memoized: this feeds the share modal's render effect, and the view
-  // re-renders on every sync tick — a fresh array each time would redraw the
-  // card continuously.
   const shareLines = useMemo(
-    // Filter BEFORE mapping: a selection made against a previous (longer) lyric
-    // set would otherwise hand partsFor an undefined line and crash the view.
     () => selected.filter((i) => translatedLyrics[i]).map((i) => partsFor(translatedLyrics[i])),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [selected, translatedLyrics, layout.lead, showOriginal]
@@ -187,7 +165,6 @@ export function PlayingView() {
       <div className="flex flex-1 flex-col min-h-0">
         <NowPlayingBar />
 
-        {/* Error */}
         {translationError && (
           <div className="flex-shrink-0 mx-auto max-w-3xl w-full px-6 pt-4">
             <motion.div
@@ -222,14 +199,12 @@ export function PlayingView() {
           </div>
         )}
 
-        {/* Loading skeleton — mirrors the centered lyric layout */}
         {track && loadState && !hasLyrics && (
           <div className="flex flex-1 items-center justify-center">
             <LoadingCycler state={loadState} />
           </div>
         )}
 
-        {/* No track */}
         {!track && !isLoading && (
           <div className="flex-1 flex flex-col items-center justify-center py-20 text-center px-6">
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-melofy-500/10 mb-4">
@@ -244,7 +219,6 @@ export function PlayingView() {
           </div>
         )}
 
-        {/* Lyrics */}
         {hasLyrics && (
           <div
             ref={containerRef}
@@ -270,8 +244,6 @@ export function PlayingView() {
                 const isActive = idx === activeLineIndex;
                 const isPast = idx < activeLineIndex;
 
-                // The "show original" toggle only governs the ORIGINAL line — when
-                // the original is leading, hiding the translation would defeat the point.
                 const { primary, secondary: secondaryRaw } = partsFor(lyric);
                 const showSecondary = !!secondaryRaw;
                 const isSelected = selected.includes(idx);
@@ -290,8 +262,6 @@ export function PlayingView() {
                       }
                     }}
                     animate={{
-                      // Blurred context needs MORE opacity, not less, or the two
-                      // effects compound into something you can't read at all.
                       opacity:
                         isActive || isSelected
                           ? 1
@@ -340,7 +310,6 @@ export function PlayingView() {
           </div>
         )}
 
-        {/* Share pill — appears once lines are picked */}
         {selected.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 16 }}
@@ -378,7 +347,10 @@ export function PlayingView() {
           artist={track.artist}
           albumArtUrl={albumArt}
           accent={preset.adaptiveAccent ? accent : undefined}
-          onClose={() => setShareOpen(false)}
+          onClose={() => {
+            setShareOpen(false);
+            setSelected([]);
+          }}
         />
       )}
     </AlbumArtBackground>

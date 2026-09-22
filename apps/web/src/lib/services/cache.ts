@@ -4,10 +4,6 @@ import { getRedisClient } from '../db/redis';
 import { config } from '../config';
 import type { LyricLine } from '@/lib/types';
 
-// Canonicalize so the SAME song hashes identically regardless of how the source
-// encodes it: Unicode NFC (á/ọ as one code point, not letter + combining mark),
-// straightened apostrophes/quotes (curly ’ vs straight '), collapsed whitespace,
-// lowercased. Without this, diacritic-heavy titles (Yoruba, etc.) miss the cache.
 function canonical(s: string): string {
   return s
     .normalize('NFC')
@@ -18,12 +14,6 @@ function canonical(s: string): string {
     .trim();
 }
 
-/**
- * Identifies the RECORDING, not just the song. Two masters of one track have the
- * same artist/title but different line counts and different timings, and the
- * cached entry carries `timeMs` — so keying on the song alone lets one master's
- * timings be served for another's audio.
- */
 export interface RecordingId {
   album?: string;
   durationMs?: number;
@@ -35,8 +25,6 @@ function recordingPart(rec?: RecordingId): string {
   // differ by far more than a second.
   const secs = rec?.durationMs && rec.durationMs > 0 ? Math.round(rec.durationMs / 1000) : '';
   const album = canonical(rec?.album ?? '');
-  // No recording info at all must hash identically whether the caller passed
-  // nothing, {}, or an object of undefineds — otherwise the cache splits in two.
   if (!album && secs === '') return '';
   return `|${album}|${secs}`;
 }

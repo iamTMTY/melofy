@@ -21,26 +21,17 @@ const isStandalone = () =>
 
 const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent);
 
-/**
- * Small dismissible card offering to install the app. Android/desktop Chrome get
- * a real Install button (native prompt); iOS has no install API, so it gets the
- * Share → "Add to Home Screen" hint instead. Hidden once running installed.
- */
 export function InstallPrompt() {
   const [mode, setMode] = useState<InstallMode>('hidden');
   const [bip, setBip] = useState<BipEvent | null>(null);
 
   useEffect(() => {
-    // All decisions go through lib/pwa.ts (unit-tested); this effect only
-    // gathers browser facts and wires events.
     let dismissed = false;
     try {
       dismissed = isInstallDismissed(localStorage.getItem(DISMISS_KEY), Date.now());
-    } catch {
-      /* storage blocked — treat as not dismissed */
-    }
+    } catch {}
     const ctx = { standalone: isStandalone(), dismissed, ios: isIOS() };
-    if (ctx.standalone || ctx.dismissed) return; // nothing can ever show this session
+    if (ctx.standalone || ctx.dismissed) return;
 
     const apply = (hasNativePrompt: boolean) => setMode(resolveInstallMode({ ...ctx, hasNativePrompt }));
     const useBip = (e: BipEvent) => {
@@ -48,7 +39,7 @@ export function InstallPrompt() {
       apply(true);
     };
     if (window.__melofyBip) useBip(window.__melofyBip);
-    else apply(false); // iOS → manual hint; anything else → hidden until the event
+    else apply(false);
     const onBip = () => window.__melofyBip && useBip(window.__melofyBip);
     window.addEventListener('melofy:bip', onBip);
 
@@ -63,9 +54,7 @@ export function InstallPrompt() {
   const dismiss = () => {
     try {
       localStorage.setItem(DISMISS_KEY, String(Date.now()));
-    } catch {
-      /* ignore */
-    }
+    } catch {}
     setMode('hidden');
   };
 

@@ -1,11 +1,3 @@
-// One-shot: push the local dataset.json into a Langfuse dataset so the songs +
-// human-reviewed references live in Langfuse too — ready for annotation queues
-// and for `dataset.runExperiment` style runs later. Idempotent: each item uses a
-// stable id (the dataset entry id), so re-running updates rather than duplicates.
-//
-//   pnpm --filter @melofy/eval dataset:sync
-//
-// No-ops with a clear message if LANGFUSE_* env vars aren't set.
 import { loadDataset } from './dataset.ts';
 import { datasetName, langfuseEnabled, upsertDatasetItems } from './langfuse.ts';
 

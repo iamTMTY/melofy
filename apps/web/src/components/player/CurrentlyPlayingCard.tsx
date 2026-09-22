@@ -32,7 +32,6 @@ export function CurrentlyPlayingCard() {
       transition={{ type: 'spring', bounce: 0, duration: 0.4 }}
       className="mx-auto w-full max-w-sm px-4"
     >
-      {/* Album art with glass overlay */}
       <div className="relative mb-6 overflow-hidden rounded-3xl aspect-square shadow-2xl shadow-black/20">
         {track.albumArtUrl ? (
           <Image
@@ -46,10 +45,8 @@ export function CurrentlyPlayingCard() {
           <div className="absolute inset-0 bg-gradient-to-br from-melofy-500/40 to-melofy-800/60" />
         )}
 
-        {/* Glass overlay at the bottom */}
         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent p-6 pt-24">
           <div className="flex items-center gap-2">
-            {/* Spotify badge */}
             <div className="flex items-center gap-1 rounded-full bg-[#1DB954]/90 backdrop-blur-sm px-2.5 py-1">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="white">
                 <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02z" />
@@ -77,7 +74,6 @@ export function CurrentlyPlayingCard() {
         </div>
       </div>
 
-      {/* Track info */}
       <div className="space-y-2 text-center">
         <h2 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-white">
           {track.title}
@@ -87,7 +83,6 @@ export function CurrentlyPlayingCard() {
         </p>
       </div>
 
-      {/* Progress bar */}
       <div className="mt-4 mb-8">
         <div className="flex justify-between text-[11px] text-gray-400 dark:text-white/30 mb-1.5">
           <span>{formatTime(playback.positionMs)}</span>
@@ -102,7 +97,6 @@ export function CurrentlyPlayingCard() {
         </div>
       </div>
 
-      {/* Error state */}
       {translationError && (
         <motion.div
           initial={{ opacity: 0, height: 0 }}
@@ -131,7 +125,6 @@ export function CurrentlyPlayingCard() {
         </motion.div>
       )}
 
-      {/* Translate CTA */}
       <motion.button
         whileTap={{ scale: 0.97 }}
         whileHover={{ scale: 1.02 }}

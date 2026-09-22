@@ -11,22 +11,8 @@ import {
 import { captureFromRequest } from '@/lib/analytics/server';
 import type { LyricLine } from '@/lib/types';
 
-/**
- * Translation endpoint for the Melofy browser extension.
- *
- * The extension already has the (synced) lyric lines from LRCLIB, so this takes
- * plain lines + a target language and returns the translations aligned 1:1 to the
- * input order. It shares the SAME cache/limit/BYOK/error policy as the web route
- * (via lib/services/translationApi) — the only differences are transport (JSON vs
- * NDJSON stream) and lyric source (client-provided vs server-fetched).
- *
- * Public (unlike /api/eval/translate): the extension calls it from its background
- * worker, which holds a host permission and so bypasses CORS. No auth by design.
- */
 const Schema = z.object({
   lines: z.array(z.string()).min(1),
-  // Real LRC timings, parallel to `lines` (null where a line is unsynced). The
-  // extension holds these client-side; without them we cannot safely cache.
   // This endpoint is PUBLIC, so the bounds are a trust boundary, not a nicety:
   // a negative or non-finite timestamp written into the SHARED cache would
   // desync the web player for every later listener of that track.
@@ -34,8 +20,6 @@ const Schema = z.object({
   targetLanguage: z.string().min(2),
   artist: z.string().optional(),
   title: z.string().optional(),
-  // Recording identity — the cache is shared with the web player, and two
-  // masters of one song must not collide on the same entry.
   album: z.string().optional(),
   durationMs: z.number().positive().optional(),
   encryptedKey: z.string().optional(),
@@ -43,8 +27,6 @@ const Schema = z.object({
 
 const canonicalLine = (s: string) => s.normalize('NFC').toLowerCase().replace(/\s+/g, ' ').trim();
 
-// Map a translation (web's cached lines OR our fresh output) onto the requested
-// lines. Fast path is a 1:1 index map; otherwise match by original text.
 function alignToLines(lines: string[], lyrics: LyricLine[]): string[] {
   if (lyrics.length === lines.length) {
     return lyrics.map((l, i) => l.translated || lines[i]);
@@ -69,12 +51,6 @@ export async function POST(req: NextRequest) {
   // The cache is SHARED with the web app, which reads `timeMs` straight out of
   // it to drive the highlight. Entries may only be written when we hold this
   // track's real timings — a placeholder would desync every future web play.
-  //
-  // Monotonicity is checked here rather than in the schema because a handful of
-  // real LRC uploads do carry out-of-order stamps (overlapping/duet lines). Those
-  // should still translate; they just must not be persisted for anyone else, and
-  // they must never produce a negative durationMs below.
-  //
   // This is all-or-nothing on purpose: a SINGLE null (one unsynced line) disables
   // caching for the whole request, because a partially-timed entry in the shared
   // cache is indistinguishable from a fully-timed one once it is read back.
@@ -86,7 +62,6 @@ export async function POST(req: NextRequest) {
     );
   const canCache = !!artist && !!title && hasRealTimings;
 
-  // 1) Shared cache — a hit is free (no gate, no model call).
   let hash: string | null = null;
   if (artist && title) {
     const lu = await lookupCache(artist, title, targetLanguage, { album, durationMs });
@@ -107,7 +82,6 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // 2) Same gate as the web route (BYOK decrypt + per-IP daily limit).
   const gate = await gateTranslation(req, encryptedKey);
   if (!gate.ok) {
     if (gate.status === 429) {
@@ -116,8 +90,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(gate.body, { status: gate.status });
   }
 
-  // Real timings when the client sent them; otherwise evenly-spaced placeholders
-  // purely so the translator has a well-formed LyricLine[] — these never persist.
   const lyrics: LyricLine[] = lines.map((original, index) => {
     const t = hasRealTimings ? (timeMs![index] as number) : index * 3000;
     const next = hasRealTimings ? (timeMs![index + 1] as number | undefined) : undefined;
@@ -130,8 +102,8 @@ export async function POST(req: NextRequest) {
       targetLanguage,
       artist,
       title,
-      undefined, // model (use configured default)
-      gate.userKey // BYOK override when present
+      undefined,
+      gate.userKey
     );
 
     if (hash && canCache) {

@@ -1,6 +1,3 @@
-# Run from the repo root: `pnpm docker:up` (starts mongodb + redis for local dev).
-# The `app` service builds the production web image (monorepo + pnpm) and is
-# opt-in: `docker compose -f infra/docker-compose.yml up -d app`.
 name: melofy
 
 services:

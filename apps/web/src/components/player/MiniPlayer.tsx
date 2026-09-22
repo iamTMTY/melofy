@@ -35,7 +35,6 @@ export function MiniPlayer() {
           }}
           className="glass-surface-heavy absolute bottom-20 left-0 right-0 z-30 mx-4 overflow-hidden rounded-2xl border border-white/20 dark:border-white/10"
         >
-          {/* Progress bar */}
           <div className="h-0.5 bg-white/10">
             <motion.div
               animate={{ width: `${progress}%` }}
@@ -45,7 +44,6 @@ export function MiniPlayer() {
           </div>
 
           <div className="flex items-center gap-3 p-3">
-            {/* Album art */}
             {track.albumArtUrl && (
               <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg shadow-lg">
                 <Image
@@ -57,7 +55,6 @@ export function MiniPlayer() {
               </div>
             )}
 
-            {/* Track info */}
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold truncate text-gray-900 dark:text-white">
                 {track.title}
@@ -70,7 +67,6 @@ export function MiniPlayer() {
               </p>
             </div>
 
-            {/* Translate button */}
             <button
               onClick={fetchTranslation}
               className="flex items-center gap-1.5 rounded-xl bg-melofy-500 px-4 py-2 text-xs font-semibold text-white shadow-lg shadow-melofy-500/30 hover:bg-melofy-600 active:scale-95 transition-all duration-150"

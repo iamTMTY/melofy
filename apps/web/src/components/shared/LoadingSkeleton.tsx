@@ -19,10 +19,8 @@ export function LoadingSkeleton() {
           transition={{ duration: 0.2 }}
           className="absolute inset-0 z-40 flex flex-col items-center justify-center gap-6"
         >
-          {/* Blurred background */}
           <div className="absolute inset-0 bg-black/50 backdrop-blur-xl" />
 
-          {/* Skeleton lines */}
           <div className="relative flex flex-col items-center gap-3 w-full max-w-md px-8">
             {[...Array(6)].map((_, i) => (
               <motion.div
@@ -41,7 +39,6 @@ export function LoadingSkeleton() {
             ))}
           </div>
 
-          {/* Spinner + text */}
           <div className="relative flex flex-col items-center gap-3">
             <motion.div
               animate={{ rotate: 360 }}

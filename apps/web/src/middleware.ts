@@ -1,10 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
-// CORS / origin allowlist for the API. In production the browser API can only be
-// called from https://melofy.temi.codes; in dev, from localhost. Override with a
-// comma-separated ALLOWED_ORIGINS env var if you add domains later.
-//
-// Notes:
 // - Requests with NO Origin header (server-to-server, curl, and the browser
 //   extension's background fetches, which bypass CORS via host_permissions) are
 //   NOT blocked — CORS can't police those anyway, and the extension needs them.
@@ -21,8 +16,8 @@ function allowedOrigins(): string[] {
 }
 
 function isAllowedOrigin(origin: string | null): boolean {
-  if (!origin) return true; // non-browser caller (server/curl/extension bg) — CORS N/A
-  if (origin.startsWith('chrome-extension://')) return true; // our browser extension
+  if (!origin) return true;
+  if (origin.startsWith('chrome-extension://')) return true;
   return allowedOrigins().includes(origin);
 }
 
@@ -40,15 +35,12 @@ function withCors(res: NextResponse, origin: string | null): NextResponse {
 export function middleware(req: NextRequest) {
   const origin = req.headers.get('origin');
 
-  // Preflight
   if (req.method === 'OPTIONS') {
     return isAllowedOrigin(origin)
       ? withCors(new NextResponse(null, { status: 204 }), origin)
       : new NextResponse(null, { status: 403 });
   }
 
-  // Block cross-origin browser calls from disallowed origins. (No-Origin requests
-  // fall through — see the note above.)
   if (origin && !isAllowedOrigin(origin)) {
     return NextResponse.json({ error: 'Origin not allowed' }, { status: 403 });
   }

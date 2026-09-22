@@ -2,7 +2,7 @@
   "name": "@melofy/web",
   "version": "1.0.0",
   "private": true,
-  "description": "Melofy web app — detects currently playing songs and shows AI-translated, synced lyrics.",
+  "description": "Melofy web app \u2014 detects currently playing songs and shows AI-translated, synced lyrics.",
   "scripts": {
     "dev": "dotenv -e ../../.env -- next dev -p 3009",
     "build": "dotenv -e ../../.env -- next build",
@@ -43,5 +43,10 @@
     "tailwindcss": "^3.4.0",
     "typescript": "^5.4.0",
     "vitest": "^4.1.11"
-  }
+  },
+  "browserslist": [
+    "defaults",
+    "iOS >= 15",
+    "Safari >= 15"
+  ]
 }

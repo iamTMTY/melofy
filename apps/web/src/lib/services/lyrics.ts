@@ -13,11 +13,6 @@ interface LRCLIBResponse {
 
 export interface LyricsResult {
   lines: LyricLine[];
-  /**
-   * False when LRCLIB only had plain text, or when its LRC belongs to a different
-   * recording of the song. Callers surface that as an error rather than showing
-   * words on invented timings — a wrong highlight is worse than none.
-   */
   synced: boolean;
 }
 
@@ -69,14 +64,10 @@ function plainTextToLRC(plain: string): LyricsResult {
     .map((l) => l.trim())
     .filter((l) => l.length > 0);
 
-  // Some uploads land in `plainLyrics` but already carry [mm:ss.xx] stamps — real
-  // timings, so trust them.
   if (LRC_LINE_REGEX.test(lines[0] || '')) {
     return { lines: parseLRC(plain), synced: true };
   }
 
-  // Evenly spaced placeholders. `synced: false` means nothing renders these; they
-  // exist so a caller can tell "lyrics exist, unsynced" from "nothing at all".
   return {
     lines: lines.map((original, index) => ({
       index,
@@ -136,7 +127,6 @@ async function fetchFromLRCLIB(
       return { lines: parseLRC(rec.syncedLyrics), synced: true };
     }
     if (rec.plainLyrics) return plainTextToLRC(rec.plainLyrics);
-    // Synced, but for the wrong recording — the words are right, the clock isn't.
     if (rec.syncedLyrics) return { lines: parseLRC(rec.syncedLyrics), synced: false };
     return NO_LYRICS;
   };
@@ -198,19 +188,12 @@ async function fetchFromLRCLIB(
     }
 
     if (results.length > 0) {
-      // Every search result already carries its lyrics, so checking them costs
-      // nothing — do that BEFORE any further network call. Synced + duration-
-      // matching candidates first, then the rest; stop at the first synced hit.
-      // (Previously a redundant /api/get ran first, and a timeout on it threw
-      // away a synced record we were already holding.)
       const ordered = [...results.filter(usable), ...results.filter((r) => !usable(r))];
       for (const cand of ordered) {
         const hit = take(fromRecord(cand));
         if (hit) return hit;
       }
 
-      // Nothing listed is synced for this recording. One exact re-fetch of the
-      // top pick: /api/get with `duration` can surface a master search omitted.
       const viaGet = take(await tryGet(ordered[0].artistName, ordered[0].trackName));
       if (viaGet) return viaGet;
     }
@@ -218,7 +201,6 @@ async function fetchFromLRCLIB(
     return fallbacks[0] ?? NO_LYRICS;
   } catch (err) {
     console.warn('[Lyrics] LRCLIB fetch failed:', err);
-    // A late network failure must not discard words already in hand.
     return fallbacks[0] ?? NO_LYRICS;
   }
 }
