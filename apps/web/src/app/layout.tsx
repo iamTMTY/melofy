@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { Outfit } from 'next/font/google';
 import localFont from 'next/font/local';
+import { PwaRegister } from '@/components/pwa/PwaRegister';
 import { PostHogProvider } from '@/components/analytics/PostHogProvider';
 
 // Self-hosted + preloaded in the document head so the fonts arrive WITH the page
@@ -67,8 +68,16 @@ export default function RootLayout({
             `,
           }}
         />
+        {/* Chrome fires beforeinstallprompt before React hydrates; stash it so the
+            InstallPrompt component can use it once mounted. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();window.__melofyBip=e;window.dispatchEvent(new Event('melofy:bip'));});`,
+          }}
+        />
       </head>
       <body className="min-h-[100dvh] bg-white dark:bg-[#1c1c1e] text-gray-900 dark:text-white antialiased font-sans" style={{ fontFamily: 'var(--font-outfit), sans-serif' }}>
+        <PwaRegister />
         <PostHogProvider>
           <div className="relative flex min-h-[100dvh] flex-col">
             {children}

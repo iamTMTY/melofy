@@ -32,6 +32,19 @@ const nextConfig = {
       { source: '/ingest/:path*', destination: 'https://us.i.posthog.com/:path*' },
     ];
   },
+  // The service worker must always be re-fetched, or a stale sw.js pins users to
+  // an old shell for up to 24h after a deploy.
+  async headers() {
+    return [
+      {
+        source: '/sw.js',
+        headers: [
+          { key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' },
+          { key: 'Service-Worker-Allowed', value: '/' },
+        ],
+      },
+    ];
+  },
   // PostHog capture requests must not be redirected on a trailing slash.
   skipTrailingSlashRedirect: true,
 };

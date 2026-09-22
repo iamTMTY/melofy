@@ -13,6 +13,7 @@ import { ServiceCards } from '@/components/player/ServiceCards';
 import { LanguagePicker } from '@/components/shared/LanguagePicker';
 import { ByokButton } from '@/components/shared/ByokButton';
 import { BrandMark } from './BrandMark';
+import { InstallPrompt } from '@/components/pwa/InstallPrompt';
 
 export function Dashboard() {
   const { sources, setSourcePlayback } = useMelofy();
@@ -133,6 +134,7 @@ export function Dashboard() {
       >
         Privacy
       </Link>
+      <InstallPrompt />
     </AlbumArtBackground>
   );
 }
