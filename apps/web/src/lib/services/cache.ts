@@ -18,8 +18,38 @@ function canonical(s: string): string {
     .trim();
 }
 
-export function generateHash(artist: string, title: string, targetLanguage: string): string {
-  const raw = `${canonical(artist)}|${canonical(title)}|${targetLanguage.toLowerCase().trim()}`;
+/**
+ * Identifies the RECORDING, not just the song. Two masters of one track have the
+ * same artist/title but different line counts and different timings, and the
+ * cached entry carries `timeMs` — so keying on the song alone lets one master's
+ * timings be served for another's audio.
+ */
+export interface RecordingId {
+  album?: string;
+  durationMs?: number;
+}
+
+function recordingPart(rec?: RecordingId): string {
+  // Seconds, not milliseconds: sources disagree in the low digits for the same
+  // master (YTM scrapes <video>, Spotify reports its own). Distinct masters
+  // differ by far more than a second.
+  const secs = rec?.durationMs && rec.durationMs > 0 ? Math.round(rec.durationMs / 1000) : '';
+  const album = canonical(rec?.album ?? '');
+  // No recording info at all must hash identically whether the caller passed
+  // nothing, {}, or an object of undefineds — otherwise the cache splits in two.
+  if (!album && secs === '') return '';
+  return `|${album}|${secs}`;
+}
+
+export function generateHash(
+  artist: string,
+  title: string,
+  targetLanguage: string,
+  recording?: RecordingId
+): string {
+  const raw =
+    `${canonical(artist)}|${canonical(title)}|${targetLanguage.toLowerCase().trim()}` +
+    recordingPart(recording);
   return crypto.createHash('sha256').update(raw).digest('hex');
 }
 

@@ -32,11 +32,14 @@ export function useTranslation() {
     const { track } = playback;
     if (!track) return;
     const lang = preferences.targetLanguage;
+    // Same identity the server keys on — a song-level client entry would shadow
+    // the recording-aware server cache and serve another master's translation.
+    const recording = { album: track.album, durationMs: track.durationMs };
 
     abortRef.current?.abort();
 
     // Client cache (IndexedDB) FIRST — a hit means no network and no model call.
-    const cached = await getCachedTranslation(track.artist, track.title, lang);
+    const cached = await getCachedTranslation(track.artist, track.title, lang, recording);
     if (cached) {
       if (cached.negative) {
         setTranslationError("I couldn't find lyrics for this track.");
@@ -57,20 +60,25 @@ export function useTranslation() {
     try {
       // Fast "no lyrics" check before committing to the (streaming) translation.
       const lyricsRes = await fetch(
-        `/api/lyrics/search?artist=${encodeURIComponent(track.artist)}&title=${encodeURIComponent(track.title)}`,
+        `/api/lyrics/search?artist=${encodeURIComponent(track.artist)}&title=${encodeURIComponent(track.title)}` +
+          (track.durationMs ? `&durationMs=${track.durationMs}` : '') +
+          (track.album ? `&album=${encodeURIComponent(track.album)}` : ''),
         { signal }
       );
 
       if (!lyricsRes.ok) {
-        void putNegativeCache(track.artist, track.title, lang);
-        setTranslationError("I couldn't find lyrics for this track.");
+        const err = await lyricsRes.json().catch(() => null);
+        // Don't negative-cache NOT_SYNCED — someone may upload an LRC tomorrow, and
+        // re-checking costs one LRCLIB call.
+        if (err?.code !== 'NOT_SYNCED') void putNegativeCache(track.artist, track.title, lang, recording);
+        setTranslationError(err?.error || "I couldn't find lyrics for this track.", err?.code ?? null);
         setLoading(false);
         return;
       }
 
       const { lyrics } = await lyricsRes.json();
       if (!lyrics || lyrics.length === 0) {
-        void putNegativeCache(track.artist, track.title, lang);
+        void putNegativeCache(track.artist, track.title, lang, recording);
         setTranslationError("I couldn't find lyrics for this track.");
         setLoading(false);
         return;
@@ -89,6 +97,8 @@ export function useTranslation() {
             artist: track.artist,
             title: track.title,
             targetLanguage: lang,
+            durationMs: track.durationMs || undefined,
+            album: track.album || undefined,
             encryptedKey: ek ?? undefined,
           }),
           signal,
@@ -152,6 +162,7 @@ export function useTranslation() {
               lyrics: obj.lyrics,
               sourceLanguage: obj.sourceLanguage,
               hash: obj.hash,
+              recording,
             });
             finalized = true;
             break;
@@ -199,6 +210,7 @@ export function useTranslation() {
           lyrics: accumulated,
           sourceLanguage,
           hash,
+          recording,
         });
       } else {
         setTranslationError('Something went wrong translating this song.');
@@ -229,7 +241,12 @@ export function useTranslation() {
       }
       // Drop the client copy so the next play re-fetches a fresh translation.
       const track = playback.track;
-      if (track) await deleteCachedTranslation(track.artist, track.title, preferences.targetLanguage);
+      if (track) {
+        await deleteCachedTranslation(track.artist, track.title, preferences.targetLanguage, {
+          album: track.album,
+          durationMs: track.durationMs,
+        });
+      }
     } catch (error) {
       console.error('[Melofy] Flag error:', error);
     }

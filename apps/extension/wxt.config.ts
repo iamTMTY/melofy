@@ -8,7 +8,7 @@ import { MELOFY_MATCH_PATTERNS } from './lib/config';
 export default defineConfig({
   modules: ['@wxt-dev/module-react'],
   manifest: ({ browser }) => ({
-    name: 'Melofy — Lyrics & Translation',
+    name: 'Melofy: Lyrics & Translation',
     description:
       'Synced, AI-translated lyrics for YouTube Music, and the now-playing bridge for the Melofy web app.',
     action: {

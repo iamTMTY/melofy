@@ -40,8 +40,8 @@ type Observation = {
 type Client = {
   flush(): Promise<void>;
   score: { create(args: Record<string, unknown>): unknown };
+  createDataset(args: Record<string, unknown>): Promise<unknown>;
   dataset: {
-    create(args: Record<string, unknown>): Promise<unknown>;
     createItem(args: Record<string, unknown>): Promise<unknown>;
   };
 };
@@ -165,7 +165,7 @@ export async function upsertDatasetItems(
   if (!langfuseEnabled) throw new Error('Langfuse is not configured (set LANGFUSE_PUBLIC_KEY / LANGFUSE_SECRET_KEY).');
   await init();
   if (!client) throw new Error('Langfuse client failed to initialize.');
-  await client.dataset.create({ name: DATASET_NAME, description: 'Melofy lyric-translation eval set (source + human-reviewed reference).' });
+  await client.createDataset({ name: DATASET_NAME, description: 'Melofy lyric-translation eval set (source + human-reviewed reference).' });
   let count = 0;
   for (const it of items) {
     await client.dataset.createItem({

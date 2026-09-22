@@ -1,6 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import { CHROME_WEB_STORE_URL } from '@/lib/constants';
 
 // Shown when the user picks YouTube Music but the Melofy browser extension —
 // which provides YTM now-playing — isn't detected on this page.
@@ -39,13 +40,20 @@ export function ExtensionInstallModal({ onClose }: { onClose: () => void }) {
           alongside YouTube Music.
         </p>
 
+        <a
+          href={CHROME_WEB_STORE_URL}
+          target="_blank"
+          rel="noreferrer noopener"
+          className="block w-full rounded-2xl bg-[#FF0000] px-4 py-3 text-sm font-semibold text-white hover:opacity-90 active:scale-[0.97] transition-all duration-200"
+        >
+          Add to Chrome — it&rsquo;s free
+        </a>
         <button
           onClick={onClose}
-          className="w-full rounded-2xl bg-[#FF0000] px-4 py-3 text-sm font-semibold text-white hover:opacity-90 active:scale-[0.97] transition-all duration-200"
+          className="mt-2 w-full rounded-2xl px-4 py-2.5 text-sm font-medium text-gray-500 dark:text-white/50 hover:text-gray-900 dark:hover:text-white transition-colors"
         >
-          Got it
+          Maybe later
         </button>
-        <p className="mt-3 text-xs text-gray-400 dark:text-white/30">Chrome Web Store listing coming soon.</p>
       </motion.div>
     </motion.div>
   );

@@ -25,9 +25,19 @@ import type { LyricLine } from '@/lib/types';
  */
 const Schema = z.object({
   lines: z.array(z.string()).min(1),
+  // Real LRC timings, parallel to `lines` (null where a line is unsynced). The
+  // extension holds these client-side; without them we cannot safely cache.
+  // This endpoint is PUBLIC, so the bounds are a trust boundary, not a nicety:
+  // a negative or non-finite timestamp written into the SHARED cache would
+  // desync the web player for every later listener of that track.
+  timeMs: z.array(z.number().finite().nonnegative().nullable()).optional(),
   targetLanguage: z.string().min(2),
   artist: z.string().optional(),
   title: z.string().optional(),
+  // Recording identity — the cache is shared with the web player, and two
+  // masters of one song must not collide on the same entry.
+  album: z.string().optional(),
+  durationMs: z.number().positive().optional(),
   encryptedKey: z.string().optional(),
 });
 
@@ -54,13 +64,32 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid request', details: parsed.error.issues }, { status: 400 });
   }
 
-  const { lines, targetLanguage, artist, title, encryptedKey } = parsed.data;
-  const canCache = !!artist && !!title;
+  const { lines, targetLanguage, artist, title, encryptedKey, timeMs, album, durationMs } = parsed.data;
+
+  // The cache is SHARED with the web app, which reads `timeMs` straight out of
+  // it to drive the highlight. Entries may only be written when we hold this
+  // track's real timings — a placeholder would desync every future web play.
+  //
+  // Monotonicity is checked here rather than in the schema because a handful of
+  // real LRC uploads do carry out-of-order stamps (overlapping/duet lines). Those
+  // should still translate; they just must not be persisted for anyone else, and
+  // they must never produce a negative durationMs below.
+  //
+  // This is all-or-nothing on purpose: a SINGLE null (one unsynced line) disables
+  // caching for the whole request, because a partially-timed entry in the shared
+  // cache is indistinguishable from a fully-timed one once it is read back.
+  const hasRealTimings =
+    !!timeMs &&
+    timeMs.length === lines.length &&
+    timeMs.every(
+      (t, i) => typeof t === 'number' && (i === 0 || t >= (timeMs[i - 1] as number))
+    );
+  const canCache = !!artist && !!title && hasRealTimings;
 
   // 1) Shared cache — a hit is free (no gate, no model call).
   let hash: string | null = null;
-  if (canCache) {
-    const lu = await lookupCache(artist!, title!, targetLanguage);
+  if (artist && title) {
+    const lu = await lookupCache(artist, title, targetLanguage, { album, durationMs });
     hash = lu.hash;
     if (lu.lyrics) {
       void captureFromRequest(req, 'translation_completed', {
@@ -87,12 +116,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(gate.body, { status: gate.status });
   }
 
-  const lyrics: LyricLine[] = lines.map((original, index) => ({
-    index,
-    timeMs: index * 3000,
-    durationMs: 3000,
-    original,
-  }));
+  // Real timings when the client sent them; otherwise evenly-spaced placeholders
+  // purely so the translator has a well-formed LyricLine[] — these never persist.
+  const lyrics: LyricLine[] = lines.map((original, index) => {
+    const t = hasRealTimings ? (timeMs![index] as number) : index * 3000;
+    const next = hasRealTimings ? (timeMs![index + 1] as number | undefined) : undefined;
+    return { index, timeMs: t, durationMs: next != null ? next - t : 3000, original };
+  });
 
   try {
     const { translatedLyrics, sourceLanguage } = await translateLyrics(

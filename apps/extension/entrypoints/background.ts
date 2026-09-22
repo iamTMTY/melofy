@@ -61,9 +61,12 @@ async function handleTranslate(msg: TranslateReq): Promise<TranslateRes> {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         lines: msg.lines,
+        timeMs: msg.timeMs,
         targetLanguage: msg.targetLanguage,
         artist: msg.artist,
         title: msg.title,
+        album: msg.album,
+        durationMs: msg.durationMs,
         encryptedKey: encryptedKey ?? undefined,
       }),
     });

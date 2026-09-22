@@ -4,6 +4,10 @@ import { useEffect, useRef } from 'react';
 import { useMelofy } from './useMelofy';
 import type { LyricLine } from '@/lib/types';
 
+// Lead the active-line highlight so it lands ON the beat rather than a moment
+// after you hear the line — matches the extension's clock. Tunable.
+const SYNC_LOOKAHEAD_MS = 200;
+
 export function useLyricSync(lyrics: LyricLine[]) {
   const { playback, setActiveLineIndex, activeLineIndex } = useMelofy();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -31,7 +35,11 @@ export function useLyricSync(lyrics: LyricLine[]) {
 
     const tick = () => {
       const { pos, at, playing } = clockRef.current;
-      const estimated = playing ? pos + (performance.now() - at) : pos;
+      // Lead by SYNC_LOOKAHEAD_MS, and clamp the extrapolation so a stalled
+      // position update (Spotify polls only ~500ms) can't drift the line ahead.
+      const estimated = playing
+        ? pos + Math.min(performance.now() - at, 2000) + SYNC_LOOKAHEAD_MS
+        : pos;
 
       let idx = -1;
       for (let i = lyrics.length - 1; i >= 0; i--) {

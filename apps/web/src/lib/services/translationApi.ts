@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server';
-import { generateHash, getCachedTranslation, saveCachedTranslation } from './cache';
+import { generateHash, getCachedTranslation, saveCachedTranslation, type RecordingId } from './cache';
 import { connectMongoDB } from '../db/mongodb';
 import { consumeTranslation } from '../rate-limit';
 import { decryptApiKey } from '../byok/serverKeys';
@@ -16,9 +16,20 @@ export interface CacheLookup {
   sourceLanguage: string;
 }
 
-/** Hash the track and read the shared cache (Redis → Mongo). */
-export async function lookupCache(artist: string, title: string, targetLanguage: string): Promise<CacheLookup> {
-  const hash = generateHash(artist, title, targetLanguage);
+/**
+ * Hash the RECORDING and read the shared cache (Redis → Mongo).
+ *
+ * `recording` is not optional in spirit: omitting it falls back to song-level
+ * keying, which can serve one master's translation (and timings) for another.
+ * Callers that know the album/duration must pass them.
+ */
+export async function lookupCache(
+  artist: string,
+  title: string,
+  targetLanguage: string,
+  recording?: RecordingId
+): Promise<CacheLookup> {
+  const hash = generateHash(artist, title, targetLanguage, recording);
   try {
     await connectMongoDB();
     const cached = await getCachedTranslation(hash);

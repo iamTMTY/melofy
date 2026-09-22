@@ -1,14 +1,15 @@
+// Waveform logo: bars step by a CONSTANT amount from the tall outer edges down to
+// a centre valley and back up, so every edge sits on a perfectly straight slant.
+// Lit from the top-left, with a single slightly-slanted drop shadow. Static.
+const BARS = [34, 29, 24, 19, 14, 19, 24, 29, 34];
+
 export function BrandMark() {
   return (
     <div className="flex flex-col items-center gap-5">
-      {/* Logo glyph */}
-      <div className="relative flex h-16 w-16 items-center justify-center rounded-[20px] bg-gradient-to-br from-melofy-400 to-melofy-600 shadow-lg shadow-melofy-500/30">
-        <div className="absolute inset-0 rounded-[20px] bg-gradient-to-t from-white/0 to-white/20" />
-        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="relative">
-          <path d="M9 18V5l12-2v13" />
-          <circle cx="6" cy="18" r="3" />
-          <circle cx="18" cy="16" r="3" />
-        </svg>
+      <div className="melofy-wave" role="img" aria-label="Melofy">
+        {BARS.map((h, i) => (
+          <span key={i} className="melofy-bar" style={{ height: h }} />
+        ))}
       </div>
 
       {/* Wordmark — solid fill so the script glyphs never clip against a

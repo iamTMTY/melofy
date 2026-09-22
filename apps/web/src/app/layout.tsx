@@ -22,7 +22,7 @@ const bunchBlossoms = localFont({
 });
 
 export const metadata: Metadata = {
-  title: 'Melofy — Translated Lyrics, Synced',
+  title: 'Melofy: Translated Lyrics, Synced',
   description: 'Overcome the language barrier in music. Melofy detects your currently playing song and displays beautifully synced, AI-translated lyrics in your language.',
   manifest: '/manifest.json',
   appleWebApp: {

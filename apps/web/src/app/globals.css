@@ -185,3 +185,27 @@
     transparent 100%
   );
 }
+
+/* Waveform logo (BrandMark) — static bars in brand purple, no box. */
+.melofy-wave {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 3px;
+  /* Lit from the top-left; the mark carries a soft diffused glow and casts a
+     single, slightly-slanted shadow (offset more down than across). */
+  filter: drop-shadow(4px 5px 3px rgba(76, 29, 149, 0.28))
+          drop-shadow(0 0 6px rgba(167, 139, 250, 0.3));
+}
+/* Bars step by a constant amount down to a centre valley and back up, so every
+   edge sits on a straight slant. Shaded to read as lit from the top-left. */
+.melofy-bar {
+  display: block;
+  width: 3px;
+  border-radius: 999px;
+  background: linear-gradient(150deg, #bda7ff 0%, #7c3aed 78%);
+}
+:root.dark .melofy-bar { background: linear-gradient(150deg, #c4b5fd 0%, #8b5cf6 78%); }
+:root.dark .melofy-wave {
+  filter: drop-shadow(4px 5px 4px rgba(0, 0, 0, 0.5))
+          drop-shadow(0 0 7px rgba(167, 139, 250, 0.35));
+}

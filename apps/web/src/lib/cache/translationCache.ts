@@ -44,9 +44,24 @@ export interface CacheHit {
   negative: boolean;
 }
 
-function makeKey(artist: string, title: string, lang: string): string {
-  // Mirror the server's hash normalization so keys line up conceptually.
-  return `${artist.toLowerCase().trim()}|${title.toLowerCase().trim()}|${lang}`;
+/**
+ * Recording identity, mirroring the server's `RecordingId` in
+ * lib/services/cache.ts. Two masters of one song carry different line counts and
+ * timings, so they must not share a client entry either — a song-level key here
+ * would shadow the recording-aware server cache and never reach it.
+ */
+export interface CacheRecording {
+  album?: string;
+  durationMs?: number;
+}
+
+function makeKey(artist: string, title: string, lang: string, rec?: CacheRecording): string {
+  // Mirror the server's hash normalization so keys line up conceptually,
+  // including the seconds bucketing (sources disagree on the low digits).
+  const secs = rec?.durationMs && rec.durationMs > 0 ? Math.round(rec.durationMs / 1000) : '';
+  const album = (rec?.album ?? '').toLowerCase().trim();
+  const part = !album && secs === '' ? '' : `|${album}|${secs}`;
+  return `${artist.toLowerCase().trim()}|${title.toLowerCase().trim()}|${lang}${part}`;
 }
 
 let dbPromise: Promise<IDBPDatabase | null> | null = null;
@@ -63,16 +78,20 @@ function getDB(): Promise<IDBPDatabase | null> {
   return dbPromise;
 }
 
+/** Exposed for the key-identity test; not part of the cache API. */
+export const translationCacheKeyForTest = makeKey;
+
 /** Look up a cached translation. Returns null on miss/expiry/version-mismatch. */
 export async function getCachedTranslation(
   artist: string,
   title: string,
-  lang: string
+  lang: string,
+  recording?: CacheRecording
 ): Promise<CacheHit | null> {
   try {
     const db = await getDB();
     if (!db) return null;
-    const key = makeKey(artist, title, lang);
+    const key = makeKey(artist, title, lang, recording);
     const e = (await db.get(STORE, key)) as CacheEntry | undefined;
     if (!e) return null;
 
@@ -111,10 +130,11 @@ export async function putCachedTranslation(args: {
   lyrics: LyricLine[];
   sourceLanguage: string;
   hash: string;
+  recording?: CacheRecording;
 }): Promise<void> {
   const now = Date.now();
   await putEntry({
-    key: makeKey(args.artist, args.title, args.lang),
+    key: makeKey(args.artist, args.title, args.lang, args.recording),
     lyrics: args.lyrics,
     sourceLanguage: args.sourceLanguage,
     hash: args.hash,
@@ -125,10 +145,15 @@ export async function putCachedTranslation(args: {
 }
 
 /** Remember that a track has no lyrics, so repeat plays skip the lyrics fetch. */
-export async function putNegativeCache(artist: string, title: string, lang: string): Promise<void> {
+export async function putNegativeCache(
+  artist: string,
+  title: string,
+  lang: string,
+  recording?: CacheRecording
+): Promise<void> {
   const now = Date.now();
   await putEntry({
-    key: makeKey(artist, title, lang),
+    key: makeKey(artist, title, lang, recording),
     lyrics: null,
     sourceLanguage: 'unknown',
     hash: '',
@@ -140,10 +165,15 @@ export async function putNegativeCache(artist: string, title: string, lang: stri
 }
 
 /** Remove one entry (e.g. when the user flags a translation as inaccurate). */
-export async function deleteCachedTranslation(artist: string, title: string, lang: string): Promise<void> {
+export async function deleteCachedTranslation(
+  artist: string,
+  title: string,
+  lang: string,
+  recording?: CacheRecording
+): Promise<void> {
   try {
     const db = await getDB();
-    if (db) await db.delete(STORE, makeKey(artist, title, lang));
+    if (db) await db.delete(STORE, makeKey(artist, title, lang, recording));
   } catch {
     /* ignore */
   }

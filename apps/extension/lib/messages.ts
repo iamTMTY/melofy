@@ -21,9 +21,14 @@ export interface GetLyricsRes {
 export interface TranslateReq {
   type: 'TRANSLATE';
   lines: string[];
+  /** LRC timings parallel to `lines`; null per line when unsynced. */
+  timeMs?: (number | null)[];
   targetLanguage: string;
   artist?: string;
   title?: string;
+  /** Recording identity — keeps two masters of a song on separate cache entries. */
+  album?: string;
+  durationMs?: number;
 }
 export interface TranslateRes {
   ok: boolean;

@@ -15,7 +15,16 @@ try {
     const t = line.trim();
     if (!t || t.startsWith('#') || !t.includes('=')) continue;
     const i = t.indexOf('=');
-    fileEnv[t.slice(0, i).trim()] = t.slice(i + 1).trim();
+    // Values may be quoted ("http://…"); strip ONE matching pair of surrounding
+    // quotes or the literal quote chars end up inside the value (an unparseable
+    // URL, an API key that fails auth).
+    const raw = t.slice(i + 1).trim();
+    const unquoted =
+      (raw.startsWith('"') && raw.endsWith('"') && raw.length > 1) ||
+      (raw.startsWith("'") && raw.endsWith("'") && raw.length > 1)
+        ? raw.slice(1, -1)
+        : raw;
+    fileEnv[t.slice(0, i).trim()] = unquoted;
   }
 } catch {
   // No .env at repo root — rely entirely on process.env.

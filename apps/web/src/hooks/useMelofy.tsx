@@ -47,31 +47,34 @@ function detectBrowserLanguage(): string {
   return supported ? short : 'en';
 }
 
+const BASE_PREFERENCES: Omit<UserPreferences, 'targetLanguage'> = {
+  fontSize: 'medium',
+  theme: 'system',
+  showOriginalLyrics: true,
+  showRomanization: false,
+  linkedService: null,
+  themePreset: 'classic',
+  readingPriority: 'understand',
+};
+
 function loadPreferences(): UserPreferences {
   if (typeof window === 'undefined') {
-    return {
-      targetLanguage: 'en',
-      fontSize: 'medium',
-      theme: 'system',
-      showOriginalLyrics: true,
-      showRomanization: false,
-      linkedService: null,
-    };
+    return { ...BASE_PREFERENCES, targetLanguage: 'en' };
   }
+
+  const defaults: UserPreferences = {
+    ...BASE_PREFERENCES,
+    targetLanguage: detectBrowserLanguage(),
+  };
 
   try {
     const stored = localStorage.getItem('melofy-preferences');
-    if (stored) return JSON.parse(stored);
+    // Merge OVER the defaults: prefs saved before a new key existed would
+    // otherwise come back with that key undefined.
+    if (stored) return { ...defaults, ...JSON.parse(stored) };
   } catch {}
 
-  return {
-    targetLanguage: detectBrowserLanguage(),
-    fontSize: 'medium',
-    theme: 'system',
-    showOriginalLyrics: true,
-    showRomanization: false,
-    linkedService: null,
-  };
+  return defaults;
 }
 
 const EMPTY_PLAYBACK: PlaybackState = {

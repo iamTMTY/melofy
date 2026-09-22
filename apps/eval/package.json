@@ -11,7 +11,9 @@
     "start": "tsx server/index.ts",
     "dataset:sync": "tsx harness/syncDataset.ts",
     "dataset:from-db": "tsx harness/buildDatasetFromDb.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "gold:build": "tsx harness/buildGoldSet.ts",
+    "prompts:sync": "tsx harness/syncPrompts.ts"
   },
   "dependencies": {
     "@langfuse/client": "^5.10.0",

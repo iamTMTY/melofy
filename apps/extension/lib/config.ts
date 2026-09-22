@@ -42,9 +42,44 @@ export const NOW_PLAYING_KEY = 'melofy:nowplaying';
 // Persisted UI prefs + per-track translation cache live under these keys.
 export const PREFS_KEY = 'melofy:prefs';
 
+export type FontSize = 'small' | 'medium' | 'large';
+/** Which line leads — mirrors the web app's reading priority. */
+export type ReadingPriority = 'understand' | 'learn' | 'both';
+/** Lyric-display prefs, set from the popup, read by the on-page lyrics view. */
+export interface Prefs {
+  targetLanguage: string;
+  autoTranslate: boolean;
+  fontSize: FontSize;
+  readingPriority: ReadingPriority;
+  /** Blur everything but the active line. */
+  focusBlur: boolean;
+}
+export const DEFAULT_PREFS: Prefs = {
+  targetLanguage: DEFAULT_TARGET_LANGUAGE,
+  autoTranslate: true,
+  fontSize: 'medium',
+  readingPriority: 'understand',
+  focusBlur: false,
+};
+
 /** Master on/off for the on-page widget, toggled from the popup. Absent = on
  *  (default), so first-run behavior is unchanged. When false, the content script
  *  unmounts the widget entirely (FAB + panel gone) until re-enabled. */
 export const ENABLED_KEY = 'melofy:enabled';
-export const translationCacheKey = (artist: string, title: string, lang: string) =>
-  `melofy:tr:${artist} ${title} ${lang}`.toLowerCase();
+/**
+ * Recording identity must be part of the key, matching the server's cache:
+ * two masters of a song differ in line count and timings, and a song-level key
+ * here would shadow the recording-aware server cache entirely.
+ */
+export const translationCacheKey = (
+  artist: string,
+  title: string,
+  lang: string,
+  rec?: { album?: string; durationMs?: number }
+) => {
+  // Seconds, not milliseconds — the scraped runtime jitters between reads.
+  const secs = rec?.durationMs && rec.durationMs > 0 ? Math.round(rec.durationMs / 1000) : '';
+  const album = rec?.album ?? '';
+  const part = !album && secs === '' ? '' : ` ${album} ${secs}`;
+  return `melofy:tr:${artist} ${title} ${lang}${part}`.toLowerCase();
+};
