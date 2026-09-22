@@ -1,5 +1,12 @@
+// Unique per build. CI passes GIT_SHA (see infra/Dockerfile.web + deploy.yml);
+// a local build falls back to a timestamp. The service worker names its cache
+// after this, so every deploy invalidates the previous shell automatically —
+// nothing depends on a human remembering to bump a constant.
+const BUILD_ID = (process.env.GIT_SHA || '').slice(0, 12) || `local-${Date.now().toString(36)}`;
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  env: { NEXT_PUBLIC_BUILD_ID: BUILD_ID },
   reactStrictMode: true,
   // @melofy/core is shipped as TypeScript source (no build step), so Next must
   // transpile it like app code.
@@ -30,19 +37,6 @@ const nextConfig = {
       { source: '/ingest/static/:path*', destination: 'https://us-assets.i.posthog.com/static/:path*' },
       { source: '/ingest/array/:path*', destination: 'https://us-assets.i.posthog.com/array/:path*' },
       { source: '/ingest/:path*', destination: 'https://us.i.posthog.com/:path*' },
-    ];
-  },
-  // The service worker must always be re-fetched, or a stale sw.js pins users to
-  // an old shell for up to 24h after a deploy.
-  async headers() {
-    return [
-      {
-        source: '/sw.js',
-        headers: [
-          { key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' },
-          { key: 'Service-Worker-Allowed', value: '/' },
-        ],
-      },
     ];
   },
   // PostHog capture requests must not be redirected on a trailing slash.

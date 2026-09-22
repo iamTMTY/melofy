@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { afterUserChoice, isInstallDismissed, resolveInstallMode, type InstallMode } from '@/lib/pwa';
 
 // `beforeinstallprompt` usually fires BEFORE React hydrates, so an inline script
 // in layout.tsx stashes it on window and re-broadcasts as `melofy:bip`.
@@ -13,7 +14,6 @@ declare global {
 }
 
 const DISMISS_KEY = 'melofy-install-dismissed-at';
-const DISMISS_FOR_MS = 14 * 24 * 60 * 60 * 1000;
 
 const isStandalone = () =>
   window.matchMedia('(display-mode: standalone)').matches ||
@@ -27,28 +27,30 @@ const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent);
  * Share → "Add to Home Screen" hint instead. Hidden once running installed.
  */
 export function InstallPrompt() {
-  const [mode, setMode] = useState<'hidden' | 'native' | 'ios'>('hidden');
+  const [mode, setMode] = useState<InstallMode>('hidden');
   const [bip, setBip] = useState<BipEvent | null>(null);
 
   useEffect(() => {
-    if (isStandalone()) return;
+    // All decisions go through lib/pwa.ts (unit-tested); this effect only
+    // gathers browser facts and wires events.
+    let dismissed = false;
     try {
-      const at = Number(localStorage.getItem(DISMISS_KEY) || 0);
-      if (at && Date.now() - at < DISMISS_FOR_MS) return;
+      dismissed = isInstallDismissed(localStorage.getItem(DISMISS_KEY), Date.now());
     } catch {
-      /* storage blocked — just show it */
+      /* storage blocked — treat as not dismissed */
     }
+    const ctx = { standalone: isStandalone(), dismissed, ios: isIOS() };
+    if (ctx.standalone || ctx.dismissed) return; // nothing can ever show this session
 
+    const apply = (hasNativePrompt: boolean) => setMode(resolveInstallMode({ ...ctx, hasNativePrompt }));
     const useBip = (e: BipEvent) => {
       setBip(e);
-      setMode('native');
+      apply(true);
     };
     if (window.__melofyBip) useBip(window.__melofyBip);
+    else apply(false); // iOS → manual hint; anything else → hidden until the event
     const onBip = () => window.__melofyBip && useBip(window.__melofyBip);
     window.addEventListener('melofy:bip', onBip);
-
-    // No install event will ever come on iOS Safari — show the manual hint.
-    if (isIOS()) setMode('ios');
 
     const onInstalled = () => setMode('hidden');
     window.addEventListener('appinstalled', onInstalled);
@@ -71,7 +73,7 @@ export function InstallPrompt() {
     if (!bip) return;
     await bip.prompt();
     const { outcome } = await bip.userChoice;
-    if (outcome === 'accepted') setMode('hidden');
+    if (afterUserChoice(outcome) === 'installed') setMode('hidden');
     else dismiss();
   };
 

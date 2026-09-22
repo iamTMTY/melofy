@@ -1,12 +1,17 @@
-// Melofy service worker — app shell only.
+// /sw.js — served from a route (not public/) so the cache name can carry the
+// build id. A fixed cache name would serve replaced public assets (icons, fonts,
+// background) forever, because cache-first never re-checks them; naming the
+// cache per build means `activate` drops the previous shell on every deploy.
+const VERSION = `melofy-shell-${process.env.NEXT_PUBLIC_BUILD_ID ?? 'dev'}`;
+
+const SW = `// Melofy service worker — app shell only. Cache: ${VERSION}
 //
 // Scope of what this touches is deliberately narrow:
 //   · never /api/* or /ingest/*  (translation streams, auth, rate limits, analytics)
 //   · never non-GET, never cross-origin
 //   · never a URL with a query string (the Spotify callback lands on
 //     /?access_token=… — caching that would persist a token in Cache Storage)
-// Bump VERSION to invalidate everything cached by a previous build.
-const VERSION = 'melofy-shell-v1';
+const VERSION = '${VERSION}';
 const SHELL = ['/', '/manifest.json', '/icon-192.png', '/icon-512.png'];
 
 self.addEventListener('install', (event) => {
@@ -23,7 +28,7 @@ self.addEventListener('activate', (event) => {
 });
 
 const isStatic = (p) =>
-  p.startsWith('/_next/static/') || p.startsWith('/fonts/') || /\.(png|webp|ico|svg)$/.test(p);
+  p.startsWith('/_next/static/') || p.startsWith('/fonts/') || /\\.(png|webp|ico|svg)$/.test(p);
 
 self.addEventListener('fetch', (event) => {
   const req = event.request;
@@ -49,7 +54,8 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Hashed build assets, fonts, icons: cache first — they never change in place.
+  // Build assets (content-hashed), fonts and icons: cache first within a build.
+  // Safe because the whole cache is dropped when VERSION changes on deploy.
   if (isStatic(url.pathname)) {
     event.respondWith(
       caches.match(req).then(
@@ -67,3 +73,16 @@ self.addEventListener('fetch', (event) => {
   }
   // Everything else falls through to the network untouched.
 });
+`;
+
+export function GET() {
+  return new Response(SW, {
+    headers: {
+      'Content-Type': 'application/javascript; charset=utf-8',
+      // Always re-fetched: a cached sw.js would pin users to an old shell for
+      // up to 24h after a deploy.
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Service-Worker-Allowed': '/',
+    },
+  });
+}
