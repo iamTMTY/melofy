@@ -131,6 +131,21 @@ async function ensureFonts(specs: string[]): Promise<void> {
  * everywhere and converges on a gaussian-like blur; the intermediate hops are
  * what keep it smooth (a single 30× upscale would show pyramid artefacts).
  */
+export function blurSizeChain(size: number, strength: number): number[] {
+  const target = Math.max(6, Math.round(size / strength));
+  const chain = [size];
+  let w = size;
+  while (Math.floor(w / 2) >= target) {
+    w = Math.floor(w / 2);
+    chain.push(w);
+  }
+  while (w < size) {
+    w = Math.min(size, w * 2);
+    chain.push(w);
+  }
+  return chain;
+}
+
 function blurredCover(img: HTMLImageElement, size: number, strength: number): HTMLCanvasElement {
   const make = (w: number) => {
     const c = document.createElement('canvas');
@@ -145,20 +160,10 @@ function blurredCover(img: HTMLImageElement, size: number, strength: number): HT
   const scale = Math.max(size / img.width, size / img.height) * 1.25;
   g.drawImage(img, (size - img.width * scale) / 2, (size - img.height * scale) / 2, img.width * scale, img.height * scale);
 
-  const target = Math.max(6, Math.round(size / strength));
-  let w = size;
-  while (w / 2 >= target) {
-    const next = make(w / 2);
-    next.g.drawImage(cur, 0, 0, w / 2, w / 2);
-    cur = next.c;
-    w /= 2;
-  }
-  while (w < size) {
-    const nw = Math.min(size, w * 2);
-    const next = make(nw);
-    next.g.drawImage(cur, 0, 0, nw, nw);
-    cur = next.c;
-    w = nw;
+  for (const next of blurSizeChain(size, strength).slice(1)) {
+    const step = make(next);
+    step.g.drawImage(cur, 0, 0, next, next);
+    cur = step.c;
   }
   return cur;
 }
