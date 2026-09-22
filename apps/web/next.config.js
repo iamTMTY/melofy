@@ -1,5 +1,12 @@
+// Unique per build. CI passes GIT_SHA (see infra/Dockerfile.web + deploy.yml);
+// a local build falls back to a timestamp. The service worker names its cache
+// after this, so every deploy invalidates the previous shell automatically —
+// nothing depends on a human remembering to bump a constant.
+const BUILD_ID = (process.env.GIT_SHA || '').slice(0, 12) || `local-${Date.now().toString(36)}`;
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  env: { NEXT_PUBLIC_BUILD_ID: BUILD_ID },
   reactStrictMode: true,
   // @melofy/core is shipped as TypeScript source (no build step), so Next must
   // transpile it like app code.
