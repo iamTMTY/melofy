@@ -15,7 +15,7 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "lint": "turbo run lint",
-    "docker:up": "docker compose --env-file .env -f infra/docker-compose.yml up -d mongodb redis",
+    "docker:up": "colima start && docker compose --env-file .env -f infra/docker-compose.yml up -d mongodb redis",
     "docker:down": "docker compose --env-file .env -f infra/docker-compose.yml down",
     "eval:dataset:sync": "pnpm --filter @melofy/eval dataset:sync",
     "eval:dataset:from-db": "pnpm --filter @melofy/eval dataset:from-db",

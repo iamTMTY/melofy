@@ -116,7 +116,7 @@ function makeSettler(): (np: NowPlaying) => NowPlaying {
 }
 
 export function watchNowPlaying(opts: {
-  onChange: (np: NowPlaying) => void;
+  onChange?: (np: NowPlaying) => void;
   onTick?: (np: NowPlaying) => void;
   intervalMs?: number;
 }): () => void {
@@ -129,7 +129,7 @@ export function watchNowPlaying(opts: {
     const key = trackKey(raw);
     if (key !== lastKey) {
       lastKey = key;
-      opts.onChange(np);
+      opts.onChange?.(np);
     }
     opts.onTick?.(np);
   };

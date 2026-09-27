@@ -4,6 +4,7 @@ import { MELOFY_MATCH_PATTERNS } from './lib/config';
 
 export default defineConfig({
   modules: ['@wxt-dev/module-react'],
+  webExt: { disabled: true },
   manifest: ({ browser }) => ({
     name: 'Melofy: Lyrics & Translation',
     description:

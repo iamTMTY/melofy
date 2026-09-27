@@ -17,9 +17,12 @@ export function LyricsView() {
   const [lines, setLines] = useState<LrcLine[]>([]);
   const [synced, setSynced] = useState(false);
   const [translated, setTranslated] = useState<string[] | null>(null);
-  const [status, setStatus] = useState<'idle' | 'loading' | 'translating' | 'error'>('idle');
+  const [status, setStatus] = useState<'idle' | 'loading' | 'translating' | 'error'>('loading');
+  const [loadedKey, setLoadedKey] = useState('');
+  const [translatedKey, setTranslatedKey] = useState('');
   const [error, setError] = useState('');
   const activeRef = useRef<HTMLDivElement>(null);
+  const embedRef = useRef<HTMLDivElement>(null);
 
   const track = np?.track;
   const key = track ? trackKey(track) : '';
@@ -51,19 +54,23 @@ export function LyricsView() {
     setError('');
     setLines([]);
     setTranslated(null);
+    setTranslatedKey('');
     requestLyrics({ artist: track.artist, title: track.title, album: track.album, durationMs: track.durationMs }).then((res) => {
       if (cancelled) return;
       if (res.ok && res.lines?.length) {
         setLines(res.lines);
         setSynced(!!res.synced);
+        setLoadedKey(key);
         setStatus('idle');
       } else {
+        setLoadedKey(key);
         setStatus('error');
         setError(res.error || "I couldn't find lyrics for this track.");
       }
     }).catch((err) => {
       if (cancelled) return;
       console.error('[Melofy] lyrics request failed:', err);
+      setLoadedKey(key);
       setStatus('error');
       setError("I couldn't reach Melofy to load lyrics. Try playing the track again.");
     });
@@ -71,14 +78,22 @@ export function LyricsView() {
   }, [key]);
 
   useEffect(() => {
-    if (!track || !prefs.autoTranslate || lines.length === 0) return;
+    if (!track || !prefs.autoTranslate || lines.length === 0 || loadedKey !== key) return;
     let cancelled = false;
     (async () => {
+      setStatus('translating');
+      setError('');
+      setTranslated(null);
+      setTranslatedKey('');
       const recording = { album: track.album, durationMs: track.durationMs };
       const cached = await getCachedTranslation(track.artist, track.title, prefs.targetLanguage, recording);
       if (cancelled) return;
-      if (cached && cached.length === lines.length) { setTranslated(cached); return; }
-      setStatus('translating');
+      if (cached && cached.length === lines.length) {
+        setTranslated(cached);
+        setTranslatedKey(`${key}:${prefs.targetLanguage}`);
+        setStatus('idle');
+        return;
+      }
       const res = await requestTranslation({
         lines: lines.map((l) => l.text),
         timeMs: lines.map((l) => l.timeMs),
@@ -91,6 +106,7 @@ export function LyricsView() {
       if (cancelled) return;
       if (res.ok && res.translated) {
         setTranslated(res.translated);
+        setTranslatedKey(`${key}:${prefs.targetLanguage}`);
         setStatus('idle');
         void setCachedTranslation(track.artist, track.title, prefs.targetLanguage, res.translated, recording);
       } else {
@@ -104,7 +120,11 @@ export function LyricsView() {
       setError("I couldn't reach Melofy to translate this song.");
     });
     return () => { cancelled = true; };
-  }, [key, lines, prefs.autoTranslate, prefs.targetLanguage]);
+  }, [key, loadedKey, lines, prefs.autoTranslate, prefs.targetLanguage]);
+
+  useEffect(() => {
+    if (!prefs.autoTranslate) setStatus((current) => current === 'translating' ? 'idle' : current);
+  }, [prefs.autoTranslate]);
 
   const [, forceTick] = useState(0);
   useEffect(() => {
@@ -131,23 +151,58 @@ export function LyricsView() {
   }, [lines, positionMs, synced]);
 
   useEffect(() => {
-    activeRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    if (activeRef.current?.getClientRects().length) {
+      activeRef.current.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
   }, [activeIndex]);
 
-  const showTranslation = prefs.autoTranslate && !!translated;
+  useEffect(() => {
+    const root = embedRef.current?.getRootNode();
+    const host = root instanceof ShadowRoot ? root.host : null;
+    if (!host) return;
+    const observer = new MutationObserver(() => {
+      if (host.hasAttribute('hidden')) return;
+      requestAnimationFrame(() => {
+        if (activeRef.current?.getClientRects().length) {
+          activeRef.current.scrollIntoView({ block: 'center', behavior: 'auto' });
+        }
+      });
+    });
+    observer.observe(host, { attributes: true, attributeFilter: ['hidden', 'data-fullscreen'] });
+    return () => observer.disconnect();
+  }, []);
+
+  const isLoading = !track || loadedKey !== key || status === 'loading';
+  const showTranslation = prefs.autoTranslate && translatedKey === `${key}:${prefs.targetLanguage}` && !!translated;
   const originalLeads = prefs.readingPriority === 'learn';
 
   return (
     <div
+      ref={embedRef}
       className="melofy-embed"
       data-size={prefs.fontSize}
       data-priority={prefs.readingPriority ?? 'understand'}
       data-focus={prefs.focusBlur ? 'blur' : undefined}
     >
+      {track?.albumArtUrl && (
+        <div className="melofy-art-background" aria-hidden="true">
+          <img src={track.albumArtUrl} alt="" />
+        </div>
+      )}
+      {status === 'translating' && !isLoading && (
+        <div className="melofy-progress" role="status" aria-live="polite">
+          <span className="melofy-progress-spinner" aria-hidden="true" />
+          Translating
+        </div>
+      )}
       <div className="melofy-lines">
-        {status === 'loading' && <div className="melofy-state">Loading lyrics…</div>}
-        {status === 'error' && <div className="melofy-state melofy-error">{error}</div>}
-        {status !== 'loading' &&
+        {isLoading && (
+          <div className="melofy-skeleton" role="status" aria-label="Loading lyrics">
+            <span /><span /><span /><span /><span />
+          </div>
+        )}
+        {!isLoading && status === 'error' && <div className="melofy-state melofy-error">{error}</div>}
+        {!isLoading &&
           lines.map((line, i) => {
             const isActive = i === activeIndex;
             const isPast = synced && i < activeIndex;
@@ -165,7 +220,7 @@ export function LyricsView() {
               </div>
             );
           })}
-        {status !== 'loading' && !synced && lines.length > 0 && (
+        {!isLoading && !synced && lines.length > 0 && (
           <div className="melofy-state melofy-muted">Unsynced lyrics — line highlighting isn&rsquo;t available.</div>
         )}
       </div>
