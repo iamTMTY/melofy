@@ -114,7 +114,7 @@ export default defineContentScript({
       onRemove: (root) => root?.unmount(),
     });
 
-    let enabled = true;
+    let enabled: boolean | null = null;
     let created = false;
     let observedTabs: HTMLElement | null = null;
     let observedRenderer: HTMLElement | null = null;
@@ -149,6 +149,7 @@ export default defineContentScript({
     };
 
     const sync = () => {
+      if (enabled === null) return;
       const parts = playerParts();
       if (parts.tabs !== observedTabs) {
         tabObserver.disconnect();
@@ -240,11 +241,6 @@ export default defineContentScript({
       document.documentElement.style.removeProperty('--melofy-page-left');
     });
 
-    sync();
-    void browser.storage.local.get(ENABLED_KEY).then((result) => {
-      enabled = (result[ENABLED_KEY] as boolean | undefined) ?? true;
-      sync();
-    }).catch(onStorageError);
     const poll = window.setInterval(sync, 700);
     ctx.onInvalidated(() => window.clearInterval(poll));
     const onStorage = (changes: Record<string, { newValue?: unknown }>, area: string) => {
@@ -255,5 +251,11 @@ export default defineContentScript({
     };
     browser.storage.onChanged.addListener(onStorage);
     ctx.onInvalidated(() => browser.storage.onChanged.removeListener(onStorage));
+    void browser.storage.local.get(ENABLED_KEY).then((result) => {
+      // A storage change received while this read was pending takes precedence.
+      if (enabled !== null) return;
+      enabled = (result[ENABLED_KEY] as boolean | undefined) ?? true;
+      sync();
+    }).catch(onStorageError);
   },
 });
