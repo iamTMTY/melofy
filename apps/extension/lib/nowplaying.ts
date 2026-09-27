@@ -165,10 +165,6 @@ export function useNowPlaying(intervalMs = 300): YouTubeMusicNowPlaying | null {
         setNp(null);
         return;
       }
-      if (document.querySelector('#movie_player')?.classList.contains('ad-showing')) {
-        setNp(null);
-        return;
-      }
       const raw = readNowPlaying();
       if (raw) {
         // YTM can update the URL before the player bar. Do not look up the old
@@ -187,8 +183,8 @@ export function useNowPlaying(intervalMs = 300): YouTubeMusicNowPlaying | null {
         previousIdentity = metadataKey(raw);
         setNp(settle(raw));
       }
-      // Keep the last valid reading when YTM briefly removes the video or bar.
-      // The URL change above clears it as soon as a different song starts.
+      // Keep the last valid reading when YTM briefly removes the video or bar,
+      // or plays an ad under the same song URL. A new video ID clears it above.
     };
     tick();
     const id = window.setInterval(tick, intervalMs);
