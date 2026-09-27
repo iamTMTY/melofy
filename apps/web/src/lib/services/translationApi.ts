@@ -4,6 +4,7 @@ import { connectMongoDB } from '../db/mongodb';
 import { consumeTranslation } from '../rate-limit';
 import { decryptApiKey } from '../byok/serverKeys';
 import type { LyricLine } from '@/lib/types';
+import { correctTranslationLine } from '@melofy/core';
 
 export interface CacheLookup {
   hash: string;
@@ -22,7 +23,14 @@ export async function lookupCache(
     await connectMongoDB();
     const cached = await getCachedTranslation(hash);
     if (cached.found && cached.lyrics?.length) {
-      return { hash, lyrics: cached.lyrics, sourceLanguage: cached.sourceLanguage || 'unknown' };
+      return {
+        hash,
+        lyrics: cached.lyrics.map((line) => ({
+          ...line,
+          translated: correctTranslationLine(line.original, line.translated || line.original, targetLanguage),
+        })),
+        sourceLanguage: cached.sourceLanguage || 'unknown',
+      };
     }
   } catch {}
   return { hash, lyrics: null, sourceLanguage: 'unknown' };

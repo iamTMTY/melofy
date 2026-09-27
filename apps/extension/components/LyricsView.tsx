@@ -5,6 +5,7 @@ import { requestLyrics, requestTranslation, getCachedTranslation, setCachedTrans
 import { PREFS_KEY, DEFAULT_PREFS, type Prefs } from '../lib/config';
 import type { LrcLine } from '../lib/lrc';
 import type { GetLyricsRes } from '../lib/messages';
+import { correctTranslationLine } from '@melofy/core';
 
 // Highlight slightly BEFORE the timestamp to cancel interpolation+paint latency
 // so the active line lands on the beat. Tunable.
@@ -125,7 +126,7 @@ export function LyricsView() {
       const cached = await getCachedTranslation(track.artist, track.title, prefs.targetLanguage, recording);
       if (cancelled) return;
       if (cached && cached.length === lines.length) {
-        setTranslated(cached);
+        setTranslated(cached.map((value, i) => correctTranslationLine(lines[i].text, value, prefs.targetLanguage)));
         setTranslatedKey(`${key}:${prefs.targetLanguage}`);
         setStatus('idle');
         return;
@@ -141,7 +142,7 @@ export function LyricsView() {
       });
       if (cancelled) return;
       if (res.ok && res.translated) {
-        setTranslated(res.translated);
+        setTranslated(res.translated.map((value, i) => correctTranslationLine(lines[i]?.text ?? '', value, prefs.targetLanguage)));
         setTranslatedKey(`${key}:${prefs.targetLanguage}`);
         setStatus('idle');
         void setCachedTranslation(track.artist, track.title, prefs.targetLanguage, res.translated, recording);
