@@ -11,6 +11,16 @@ const SYNC_LOOKAHEAD_MS = 200;
 const trackKey = (t: { artist: string; title: string; album?: string; durationMs?: number }) =>
   `${t.artist} — ${t.title} — ${t.album ?? ''} — ${t.durationMs ?? ''}`;
 
+function centerActiveLine(scroller: HTMLDivElement | null, line: HTMLDivElement | null, behavior: ScrollBehavior) {
+  if (!scroller || !line || !line.getClientRects().length) return;
+  const scrollerRect = scroller.getBoundingClientRect();
+  const lineRect = line.getBoundingClientRect();
+  scroller.scrollTo({
+    top: scroller.scrollTop + lineRect.top - scrollerRect.top - (scroller.clientHeight - lineRect.height) / 2,
+    behavior,
+  });
+}
+
 export function LyricsView() {
   const np = useNowPlaying(150);
   const [prefs, setPrefs] = useState<Prefs>(DEFAULT_PREFS);
@@ -21,11 +31,15 @@ export function LyricsView() {
   const [loadedKey, setLoadedKey] = useState('');
   const [translatedKey, setTranslatedKey] = useState('');
   const [error, setError] = useState('');
+  const [followPlayback, setFollowPlayback] = useState(true);
   const activeRef = useRef<HTMLDivElement>(null);
+  const linesRef = useRef<HTMLDivElement>(null);
   const embedRef = useRef<HTMLDivElement>(null);
 
   const track = np?.track;
   const key = track ? trackKey(track) : '';
+
+  useEffect(() => setFollowPlayback(true), [key]);
 
   useEffect(() => {
     browser.storage.local.get(PREFS_KEY).then((r) => {
@@ -151,26 +165,22 @@ export function LyricsView() {
   }, [lines, positionMs, synced]);
 
   useEffect(() => {
-    if (activeRef.current?.getClientRects().length) {
-      activeRef.current.scrollIntoView({ block: 'center', behavior: 'smooth' });
-    }
-  }, [activeIndex]);
+    if (followPlayback) centerActiveLine(linesRef.current, activeRef.current, 'smooth');
+  }, [activeIndex, followPlayback, translatedKey]);
 
   useEffect(() => {
     const root = embedRef.current?.getRootNode();
     const host = root instanceof ShadowRoot ? root.host : null;
     if (!host) return;
     const observer = new MutationObserver(() => {
-      if (host.hasAttribute('hidden')) return;
+      if (host.hasAttribute('hidden') || !followPlayback) return;
       requestAnimationFrame(() => {
-        if (activeRef.current?.getClientRects().length) {
-          activeRef.current.scrollIntoView({ block: 'center', behavior: 'auto' });
-        }
+        centerActiveLine(linesRef.current, activeRef.current, 'auto');
       });
     });
     observer.observe(host, { attributes: true, attributeFilter: ['hidden', 'data-fullscreen'] });
     return () => observer.disconnect();
-  }, []);
+  }, [followPlayback]);
 
   const isLoading = !track || loadedKey !== key || status === 'loading';
   const showTranslation = prefs.autoTranslate && translatedKey === `${key}:${prefs.targetLanguage}` && !!translated;
@@ -195,13 +205,36 @@ export function LyricsView() {
           Translating
         </div>
       )}
-      <div className="melofy-lines">
+      {synced && !followPlayback && activeIndex >= 0 && (
+        <button className="melofy-follow" type="button" onClick={() => setFollowPlayback(true)}>
+          Follow current line
+        </button>
+      )}
+      <div
+        ref={linesRef}
+        className="melofy-lines"
+        role="region"
+        aria-label="Lyrics"
+        tabIndex={0}
+        onWheelCapture={(event) => { event.stopPropagation(); if (synced) setFollowPlayback(false); }}
+        onTouchStartCapture={(event) => { event.stopPropagation(); if (synced) setFollowPlayback(false); }}
+        onPointerDownCapture={() => { if (synced) setFollowPlayback(false); }}
+        onKeyDownCapture={(event) => {
+          if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End'].includes(event.key)) {
+            event.stopPropagation();
+            if (synced) setFollowPlayback(false);
+          }
+        }}
+      >
         {isLoading && (
           <div className="melofy-skeleton" role="status" aria-label="Loading lyrics">
             <span /><span /><span /><span /><span />
           </div>
         )}
         {!isLoading && status === 'error' && <div className="melofy-state melofy-error">{error}</div>}
+        {!isLoading && !synced && lines.length > 0 && (
+          <div className="melofy-unsynced-note">Unsynced lyrics · Scroll to read</div>
+        )}
         {!isLoading &&
           lines.map((line, i) => {
             const isActive = i === activeIndex;
@@ -220,9 +253,6 @@ export function LyricsView() {
               </div>
             );
           })}
-        {!isLoading && !synced && lines.length > 0 && (
-          <div className="melofy-state melofy-muted">Unsynced lyrics — line highlighting isn&rsquo;t available.</div>
-        )}
       </div>
     </div>
   );

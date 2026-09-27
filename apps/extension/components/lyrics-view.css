@@ -58,6 +58,8 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  overscroll-behavior-y: contain;
+  touch-action: pan-y;
   position: relative;
   z-index: 1;
   padding: 42px 12px 56px;
@@ -67,12 +69,30 @@
 :host([data-fullscreen]) .melofy-lines {
   padding: 40dvh 24px 42dvh;
   text-align: center;
-  scrollbar-width: none;
 }
-:host([data-fullscreen]) .melofy-lines::-webkit-scrollbar { display: none; }
 :host([data-fullscreen]) .melofy-skeleton span { margin-inline: auto; }
-.melofy-lines::-webkit-scrollbar { width: 6px; }
-.melofy-lines::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.16); border-radius: 999px; }
+.melofy-lines::-webkit-scrollbar { width: 8px; }
+.melofy-lines::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.28); border-radius: 999px; }
+.melofy-lines:focus-visible { outline: 2px solid var(--accent-2); outline-offset: -2px; }
+
+.melofy-follow {
+  position: absolute;
+  top: 9px;
+  left: 14px;
+  z-index: 2;
+  padding: 6px 9px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 6px;
+  color: var(--text);
+  background: rgba(27, 27, 32, 0.82);
+  font: inherit;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+}
+.melofy-follow:hover { background: #39393f; }
+.melofy-follow:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+.melofy-unsynced-note { padding: 0 0 12px; color: var(--muted); font-size: 12px; }
 
 .melofy-progress {
   position: absolute;
@@ -126,7 +146,7 @@
   transition: color 0.3s ease, transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .melofy-line.is-past { color: var(--muted); }
-.melofy-line.is-unsynced { color: var(--muted); }
+.melofy-line.is-unsynced { color: rgba(244, 245, 250, 0.82); }
 .melofy-line.is-active { color: var(--text); transform: translateX(3px); }
 .melofy-line-primary {
   font-size: 16px;
@@ -142,6 +162,7 @@
   color: var(--dim);
 }
 .melofy-line.is-active .melofy-line-secondary { color: var(--muted); }
+.melofy-line.is-unsynced .melofy-line-secondary { color: rgba(244, 245, 250, 0.66); }
 
 :host([data-fullscreen]) .melofy-embed {
   --dim: rgba(255, 255, 255, 0.2);
