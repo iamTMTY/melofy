@@ -224,6 +224,19 @@
 
 .melofy-state { padding: 16px 2px; font-size: 13px; color: var(--muted); }
 .melofy-error { color: #ff9d9d; }
+.melofy-retry {
+  display: block;
+  margin-top: 12px;
+  padding: 7px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.26);
+  border-radius: 6px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.08);
+  font: inherit;
+  cursor: pointer;
+}
+.melofy-retry:hover { background: rgba(255, 255, 255, 0.15); }
+.melofy-retry:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
 .melofy-muted { color: var(--muted); }
 
 @media (max-width: 640px) {

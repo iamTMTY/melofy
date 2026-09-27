@@ -25,28 +25,50 @@ export default defineBackground(() => {
 });
 
 async function handleGetLyrics(msg: GetLyricsReq): Promise<GetLyricsRes> {
-  try {
-    const params = new URLSearchParams({ artist_name: msg.artist, track_name: msg.title });
-    if (msg.album) params.set('album_name', msg.album);
-    if (msg.durationMs) params.set('duration', String(Math.round(msg.durationMs / 1000)));
-
-    let d: any = null;
-    const getRes = await fetch(`https://lrclib.net/api/get?${params.toString()}`);
-    if (getRes.ok) d = await getRes.json();
-
-    if (!d || (!d.syncedLyrics && !d.plainLyrics)) {
-      const q = encodeURIComponent(`${msg.title} ${msg.artist}`);
-      const searchRes = await fetch(`https://lrclib.net/api/search?q=${q}`);
-      const arr = searchRes.ok ? await searchRes.json() : [];
-      d = Array.isArray(arr) ? arr.find((x: any) => x.syncedLyrics || x.plainLyrics) : null;
+  let serviceError = false;
+  const fetchJson = async (url: string): Promise<any> => {
+    try {
+      const res = await fetch(url);
+      if (res.ok) return await res.json();
+      if (res.status !== 404) serviceError = true;
+    } catch {
+      serviceError = true;
     }
+    return null;
+  };
+  const parseRecord = (value: any): GetLyricsRes | null => {
+    if (value?.syncedLyrics) {
+      const lines = parseLrc(value.syncedLyrics);
+      if (lines.length) return { ok: true, lines, synced: lines.some((line) => line.timeMs !== null) };
+    }
+    if (value?.plainLyrics) {
+      const lines = parsePlain(value.plainLyrics);
+      if (lines.length) return { ok: true, lines, synced: false };
+    }
+    return null;
+  };
+  const baseParams = new URLSearchParams({ artist_name: msg.artist, track_name: msg.title });
+  const exactParams = new URLSearchParams(baseParams);
+  if (msg.album) exactParams.set('album_name', msg.album);
+  if (msg.durationMs) exactParams.set('duration', String(Math.round(msg.durationMs / 1000)));
 
-    if (d?.syncedLyrics) return { ok: true, lines: parseLrc(d.syncedLyrics), synced: true };
-    if (d?.plainLyrics) return { ok: true, lines: parsePlain(d.plainLyrics), synced: false };
-    return { ok: false, error: 'No lyrics found for this track.' };
-  } catch (err: any) {
-    return { ok: false, error: err?.message || 'Lyrics fetch failed' };
+  let result = parseRecord(await fetchJson(`https://lrclib.net/api/get?${exactParams}`));
+  if (!result && exactParams.toString() !== baseParams.toString()) {
+    // Album and duration can be stale while YTM switches tracks.
+    result = parseRecord(await fetchJson(`https://lrclib.net/api/get?${baseParams}`));
   }
+  if (!result) {
+    const q = encodeURIComponent(`${msg.title} ${msg.artist}`);
+    const matches = await fetchJson(`https://lrclib.net/api/search?q=${q}`);
+    if (Array.isArray(matches)) {
+      for (const match of matches) {
+        result = parseRecord(match);
+        if (result) break;
+      }
+    }
+  }
+
+  return result ?? { ok: false, error: serviceError ? 'Lyrics service is temporarily unavailable. Try again.' : 'No lyrics found for this track.' };
 }
 
 async function handleTranslate(msg: TranslateReq): Promise<TranslateRes> {
