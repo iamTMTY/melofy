@@ -33,7 +33,6 @@ export function LyricsView() {
   const [translatedKey, setTranslatedKey] = useState('');
   const [error, setError] = useState('');
   const [retryToken, setRetryToken] = useState(0);
-  const [followPlayback, setFollowPlayback] = useState(true);
   const lyricsCacheRef = useRef(new Map<string, { lines: LrcLine[]; synced: boolean }>());
   const activeRef = useRef<HTMLDivElement>(null);
   const linesRef = useRef<HTMLDivElement>(null);
@@ -41,8 +40,6 @@ export function LyricsView() {
 
   const track = np?.track;
   const key = track ? trackKey(track, np.videoId) : '';
-
-  useEffect(() => setFollowPlayback(true), [key]);
 
   useEffect(() => {
     browser.storage.local.get(PREFS_KEY).then((r) => {
@@ -190,22 +187,22 @@ export function LyricsView() {
   }, [lines, positionMs, synced]);
 
   useEffect(() => {
-    if (followPlayback) centerActiveLine(linesRef.current, activeRef.current, 'smooth');
-  }, [activeIndex, followPlayback, translatedKey]);
+    centerActiveLine(linesRef.current, activeRef.current, 'smooth');
+  }, [activeIndex]);
 
   useEffect(() => {
     const root = embedRef.current?.getRootNode();
     const host = root instanceof ShadowRoot ? root.host : null;
     if (!host) return;
     const observer = new MutationObserver(() => {
-      if (host.hasAttribute('hidden') || !followPlayback) return;
+      if (host.hasAttribute('hidden')) return;
       requestAnimationFrame(() => {
         centerActiveLine(linesRef.current, activeRef.current, 'auto');
       });
     });
     observer.observe(host, { attributes: true, attributeFilter: ['hidden', 'data-fullscreen'] });
     return () => observer.disconnect();
-  }, [followPlayback]);
+  }, []);
 
   const isLoading = !track || loadedKey !== key || status === 'loading';
   const showTranslation = prefs.autoTranslate && translatedKey === `${key}:${prefs.targetLanguage}` && !!translated;
@@ -230,24 +227,17 @@ export function LyricsView() {
           Translating
         </div>
       )}
-      {synced && !followPlayback && activeIndex >= 0 && (
-        <button className="melofy-follow" type="button" onClick={() => setFollowPlayback(true)}>
-          Follow current line
-        </button>
-      )}
       <div
         ref={linesRef}
         className="melofy-lines"
         role="region"
         aria-label="Lyrics"
         tabIndex={0}
-        onWheelCapture={(event) => { event.stopPropagation(); if (synced) setFollowPlayback(false); }}
-        onTouchStartCapture={(event) => { event.stopPropagation(); if (synced) setFollowPlayback(false); }}
-        onPointerDownCapture={() => { if (synced) setFollowPlayback(false); }}
+        onWheelCapture={(event) => event.stopPropagation()}
+        onTouchStartCapture={(event) => event.stopPropagation()}
         onKeyDownCapture={(event) => {
           if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End'].includes(event.key)) {
             event.stopPropagation();
-            if (synced) setFollowPlayback(false);
           }
         }}
       >

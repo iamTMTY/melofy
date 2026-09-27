@@ -9,6 +9,13 @@
 }
 :host([hidden]) { display: none !important; }
 
+html, body {
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  overflow: hidden;
+}
+
 .melofy-embed {
   --accent: #7c5cff;
   --accent-2: #a78bfa;
@@ -75,23 +82,6 @@
 .melofy-lines::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.28); border-radius: 999px; }
 .melofy-lines:focus-visible { outline: 2px solid var(--accent-2); outline-offset: -2px; }
 
-.melofy-follow {
-  position: absolute;
-  top: 9px;
-  left: 14px;
-  z-index: 2;
-  padding: 6px 9px;
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  border-radius: 6px;
-  color: var(--text);
-  background: rgba(27, 27, 32, 0.82);
-  font: inherit;
-  font-size: 11px;
-  line-height: 1;
-  cursor: pointer;
-}
-.melofy-follow:hover { background: #39393f; }
-.melofy-follow:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
 .melofy-unsynced-note { padding: 0 0 12px; color: var(--muted); font-size: 12px; }
 
 .melofy-progress {
