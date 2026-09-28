@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { parseTranslationResponse, looksLikeRefusal, detectSourceLanguage } from './translation';
 import type { LyricLine } from '@/lib/types';
-import { correctTranslationLine } from '@melofy/core';
 
 const lyrics: LyricLine[] = [
   { index: 0, timeMs: 1000, durationMs: 2000, original: 'Ojú ayé le' },
@@ -28,31 +27,6 @@ describe('parseTranslationResponse', () => {
     expect(translatedLyrics[1].translated).toBe('Mo ní ìrètí');
   });
 
-  it('renders a code-switched biblical phrase by meaning rather than respelling it', () => {
-    const mixed: LyricLine[] = [
-      { index: 0, timeMs: 1000, durationMs: 2000, original: 'Dúró ṣinṣin' },
-      { index: 1, timeMs: 3000, durationMs: 2000, original: 'Talita kum' },
-    ];
-    const output = '[00:01.00] Stand firm\n[00:03.00] Talitha kum';
-    const { translatedLyrics } = parseTranslationResponse(output, mixed, 'en');
-    expect(translatedLyrics.map((line) => line.translated)).toEqual([
-      'Stand firm',
-      'Little girl, I say to you, get up',
-    ]);
-  });
-});
-
-describe('correctTranslationLine', () => {
-  it('handles spelling variants and punctuation in a verified phrase', () => {
-    expect(correctTranslationLine('Talitha koum!', 'Talitha kum', 'English'))
-      .toBe('Little girl, I say to you, get up!');
-  });
-
-  it('leaves meaningful translations, other languages, and unrelated names alone', () => {
-    expect(correctTranslationLine('Talita kum', 'Little girl, arise', 'en')).toBe('Little girl, arise');
-    expect(correctTranslationLine('Talita kum', 'Talitha kum', 'fr')).toBe('Talitha kum');
-    expect(correctTranslationLine('Talita', 'Talitha', 'en')).toBe('Talitha');
-  });
 });
 
 describe('looksLikeRefusal', () => {

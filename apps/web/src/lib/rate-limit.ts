@@ -38,7 +38,8 @@ export interface RateLimitResult {
 }
 
 export async function consumeTranslation(req: NextRequest): Promise<RateLimitResult> {
-  const limit = config.dailyTranslationLimit;
+  // Local development should not consume the shared daily free quota.
+  const limit = process.env.NODE_ENV === 'development' ? 0 : config.dailyTranslationLimit;
   const resetAt = nextUtcMidnight();
   if (!limit || limit <= 0) return { allowed: true, remaining: Number.POSITIVE_INFINITY, limit: 0, resetAt };
 

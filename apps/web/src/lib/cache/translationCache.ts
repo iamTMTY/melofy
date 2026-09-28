@@ -1,6 +1,5 @@
 import { openDB, type IDBPDatabase } from 'idb';
 import type { LyricLine } from '@/lib/types';
-import { correctTranslationLine } from '@melofy/core';
 
 const DB_NAME = 'melofy';
 const STORE = 'translations';
@@ -86,15 +85,7 @@ export async function getCachedTranslation(
     e.lastAccess = Date.now();
     db.put(STORE, e).catch(() => {});
 
-    return {
-      lyrics: e.lyrics?.map((line) => ({
-        ...line,
-        translated: correctTranslationLine(line.original, line.translated || line.original, lang),
-      })) ?? null,
-      sourceLanguage: e.sourceLanguage,
-      hash: e.hash,
-      negative: !!e.negative,
-    };
+    return { lyrics: e.lyrics, sourceLanguage: e.sourceLanguage, hash: e.hash, negative: !!e.negative };
   } catch {
     return null;
   }

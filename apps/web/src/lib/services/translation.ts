@@ -4,7 +4,6 @@ import { startActiveObservation, propagateAttributes } from '@langfuse/tracing';
 import { config } from '../config';
 import { langfuseTracingEnabled, flushTracing } from '@/lib/langfuse/tracing';
 import type { LyricLine } from '@/lib/types';
-import { correctTranslationLine } from '@melofy/core';
 
 type Provider = 'gemini' | 'openrouter' | 'openai';
 
@@ -273,7 +272,7 @@ export async function translateLyrics(
       throw new Error('Translation is temporarily unavailable for this track. Please try again.');
     }
 
-    return parseTranslationResponse(content, lyrics, targetLanguage);
+    return parseTranslationResponse(content, lyrics);
   } catch (error) {
     console.error('[Translation] AI translation error:', error);
     const message = error instanceof Error ? error.message : 'Failed to translate lyrics via AI';
@@ -356,10 +355,7 @@ export async function translateLyricsStreaming(
     if (targetIdx < 0 || !text) return;
 
     filled[targetIdx] = true;
-    const line: LyricLine = {
-      ...lyrics[targetIdx],
-      translated: correctTranslationLine(lyrics[targetIdx].original, text, targetLanguage),
-    };
+    const line: LyricLine = { ...lyrics[targetIdx], translated: text };
     result[targetIdx] = line;
     onLine(line);
   };
@@ -405,10 +401,7 @@ export async function translateLyricsStreaming(
 
   for (let i = 0; i < lyrics.length; i++) {
     if (!filled[i]) {
-      const line: LyricLine = {
-        ...lyrics[i],
-        translated: correctTranslationLine(lyrics[i].original, lyrics[i].original, targetLanguage),
-      };
+      const line: LyricLine = { ...lyrics[i], translated: lyrics[i].original };
       result[i] = line;
       onLine(line);
     }
@@ -434,8 +427,7 @@ export function detectSourceLanguage(originalLyrics: LyricLine[]): string {
 
 export function parseTranslationResponse(
   content: string,
-  originalLyrics: LyricLine[],
-  targetLanguage = ''
+  originalLyrics: LyricLine[]
 ): { translatedLyrics: LyricLine[]; sourceLanguage: string } {
   const lines = content.trim().split('\n');
   const translatedLyrics: LyricLine[] = [];
@@ -475,7 +467,7 @@ export function parseTranslationResponse(
 
     translatedLyrics.push({
       ...original,
-      translated: correctTranslationLine(original.original, translatedText, targetLanguage),
+      translated: translatedText,
     });
   }
 

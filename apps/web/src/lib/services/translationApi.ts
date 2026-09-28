@@ -4,7 +4,6 @@ import { connectMongoDB } from '../db/mongodb';
 import { consumeTranslation } from '../rate-limit';
 import { decryptApiKey } from '../byok/serverKeys';
 import type { LyricLine } from '@/lib/types';
-import { correctTranslationLine } from '@melofy/core';
 
 export interface CacheLookup {
   hash: string;
@@ -23,14 +22,7 @@ export async function lookupCache(
     await connectMongoDB();
     const cached = await getCachedTranslation(hash);
     if (cached.found && cached.lyrics?.length) {
-      return {
-        hash,
-        lyrics: cached.lyrics.map((line) => ({
-          ...line,
-          translated: correctTranslationLine(line.original, line.translated || line.original, targetLanguage),
-        })),
-        sourceLanguage: cached.sourceLanguage || 'unknown',
-      };
+      return { hash, lyrics: cached.lyrics, sourceLanguage: cached.sourceLanguage || 'unknown' };
     }
   } catch {}
   return { hash, lyrics: null, sourceLanguage: 'unknown' };
@@ -84,6 +76,6 @@ export function translateErrorBody(error: unknown): { status: number; body: Reco
   const e = error as { status?: number; message?: string };
   const is429 = e?.status === 429 || /\b429\b/.test(String(e?.message ?? ''));
   return is429
-    ? { status: 429, body: { error: "You've used up today's free translations.", code: 'RATE_LIMIT' } }
+    ? { status: 429, body: { error: 'The translation provider is rate limited. Try again shortly.', code: 'UPSTREAM_RATE_LIMIT' } }
     : { status: 500, body: { error: 'Something went wrong translating this song.' } };
 }
