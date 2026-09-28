@@ -4,12 +4,23 @@ import { useNowPlaying } from '../lib/nowplaying';
 import { requestLyrics, requestTranslation, getCachedTranslation, setCachedTranslation } from '../lib/api';
 import { PREFS_KEY, DEFAULT_PREFS, type Prefs } from '../lib/config';
 import type { LrcLine } from '../lib/lrc';
+import type { GetLyricsRes } from '../lib/messages';
 
 // Highlight slightly BEFORE the timestamp to cancel interpolation+paint latency
 // so the active line lands on the beat. Tunable.
 const SYNC_LOOKAHEAD_MS = 200;
-const trackKey = (t: { artist: string; title: string; album?: string; durationMs?: number }) =>
-  `${t.artist} — ${t.title} — ${t.album ?? ''} — ${t.durationMs ?? ''}`;
+const trackKey = (t: { artist: string; title: string }, videoId: string | null) =>
+  videoId ? `ytm:${videoId}` : `meta:${t.artist.trim().toLowerCase()} — ${t.title.trim().toLowerCase()}`;
+
+function centerActiveLine(scroller: HTMLDivElement | null, line: HTMLDivElement | null, behavior: ScrollBehavior) {
+  if (!scroller || !line || !line.getClientRects().length) return;
+  const scrollerRect = scroller.getBoundingClientRect();
+  const lineRect = line.getBoundingClientRect();
+  scroller.scrollTo({
+    top: scroller.scrollTop + lineRect.top - scrollerRect.top - (scroller.clientHeight - lineRect.height) / 2,
+    behavior,
+  });
+}
 
 export function LyricsView() {
   const np = useNowPlaying(150);
@@ -21,11 +32,14 @@ export function LyricsView() {
   const [loadedKey, setLoadedKey] = useState('');
   const [translatedKey, setTranslatedKey] = useState('');
   const [error, setError] = useState('');
+  const [retryToken, setRetryToken] = useState(0);
+  const lyricsCacheRef = useRef(new Map<string, { lines: LrcLine[]; synced: boolean }>());
   const activeRef = useRef<HTMLDivElement>(null);
+  const linesRef = useRef<HTMLDivElement>(null);
   const embedRef = useRef<HTMLDivElement>(null);
 
   const track = np?.track;
-  const key = track ? trackKey(track) : '';
+  const key = track ? trackKey(track, np.videoId) : '';
 
   useEffect(() => {
     browser.storage.local.get(PREFS_KEY).then((r) => {
@@ -50,32 +64,54 @@ export function LyricsView() {
   useEffect(() => {
     if (!track) return;
     let cancelled = false;
+    const cached = lyricsCacheRef.current.get(key);
+    if (cached) {
+      setLines(cached.lines);
+      setSynced(cached.synced);
+      setLoadedKey(key);
+      setStatus('idle');
+      setError('');
+      return;
+    }
     setStatus('loading');
     setError('');
     setLines([]);
     setTranslated(null);
     setTranslatedKey('');
-    requestLyrics({ artist: track.artist, title: track.title, album: track.album, durationMs: track.durationMs }).then((res) => {
-      if (cancelled) return;
-      if (res.ok && res.lines?.length) {
-        setLines(res.lines);
-        setSynced(!!res.synced);
-        setLoadedKey(key);
-        setStatus('idle');
-      } else {
+    const request = { artist: track.artist, title: track.title, album: track.album, durationMs: track.durationMs };
+    const load = async () => {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        let res: GetLyricsRes;
+        try {
+          res = await requestLyrics(request);
+        } catch (err) {
+          console.error('[Melofy] lyrics request failed:', err);
+          res = { ok: false, error: "I couldn't reach Melofy to load lyrics." };
+        }
+        if (cancelled) return;
+        if (res.ok && res.lines?.length) {
+          const result = { lines: res.lines, synced: !!res.synced };
+          lyricsCacheRef.current.set(key, result);
+          if (lyricsCacheRef.current.size > 8) lyricsCacheRef.current.delete(lyricsCacheRef.current.keys().next().value!);
+          setLines(result.lines);
+          setSynced(result.synced);
+          setLoadedKey(key);
+          setStatus('idle');
+          return;
+        }
+        if (attempt === 0) {
+          await new Promise((resolve) => window.setTimeout(resolve, 700));
+          if (cancelled) return;
+          continue;
+        }
         setLoadedKey(key);
         setStatus('error');
         setError(res.error || "I couldn't find lyrics for this track.");
       }
-    }).catch((err) => {
-      if (cancelled) return;
-      console.error('[Melofy] lyrics request failed:', err);
-      setLoadedKey(key);
-      setStatus('error');
-      setError("I couldn't reach Melofy to load lyrics. Try playing the track again.");
-    });
+    };
+    void load();
     return () => { cancelled = true; };
-  }, [key]);
+  }, [key, retryToken]);
 
   useEffect(() => {
     if (!track || !prefs.autoTranslate || lines.length === 0 || loadedKey !== key) return;
@@ -151,9 +187,7 @@ export function LyricsView() {
   }, [lines, positionMs, synced]);
 
   useEffect(() => {
-    if (activeRef.current?.getClientRects().length) {
-      activeRef.current.scrollIntoView({ block: 'center', behavior: 'smooth' });
-    }
+    centerActiveLine(linesRef.current, activeRef.current, 'smooth');
   }, [activeIndex]);
 
   useEffect(() => {
@@ -163,9 +197,7 @@ export function LyricsView() {
     const observer = new MutationObserver(() => {
       if (host.hasAttribute('hidden')) return;
       requestAnimationFrame(() => {
-        if (activeRef.current?.getClientRects().length) {
-          activeRef.current.scrollIntoView({ block: 'center', behavior: 'auto' });
-        }
+        centerActiveLine(linesRef.current, activeRef.current, 'auto');
       });
     });
     observer.observe(host, { attributes: true, attributeFilter: ['hidden', 'data-fullscreen'] });
@@ -195,13 +227,34 @@ export function LyricsView() {
           Translating
         </div>
       )}
-      <div className="melofy-lines">
+      <div
+        ref={linesRef}
+        className="melofy-lines"
+        role="region"
+        aria-label="Lyrics"
+        tabIndex={0}
+        onWheelCapture={(event) => event.stopPropagation()}
+        onTouchStartCapture={(event) => event.stopPropagation()}
+        onKeyDownCapture={(event) => {
+          if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End'].includes(event.key)) {
+            event.stopPropagation();
+          }
+        }}
+      >
         {isLoading && (
           <div className="melofy-skeleton" role="status" aria-label="Loading lyrics">
             <span /><span /><span /><span /><span />
           </div>
         )}
-        {!isLoading && status === 'error' && <div className="melofy-state melofy-error">{error}</div>}
+        {!isLoading && status === 'error' && (
+          <div className="melofy-state melofy-error">
+            {error}
+            {lines.length === 0 && <button className="melofy-retry" type="button" onClick={() => setRetryToken((n) => n + 1)}>Try again</button>}
+          </div>
+        )}
+        {!isLoading && !synced && lines.length > 0 && (
+          <div className="melofy-unsynced-note">Unsynced lyrics · Scroll to read</div>
+        )}
         {!isLoading &&
           lines.map((line, i) => {
             const isActive = i === activeIndex;
@@ -220,9 +273,6 @@ export function LyricsView() {
               </div>
             );
           })}
-        {!isLoading && !synced && lines.length > 0 && (
-          <div className="melofy-state melofy-muted">Unsynced lyrics — line highlighting isn&rsquo;t available.</div>
-        )}
       </div>
     </div>
   );

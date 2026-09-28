@@ -112,6 +112,15 @@ Selectors in play: `ytmusic-player-page` → `tp-yt-paper-tab` (text matches
    Up next, Lyrics, Comments, and Related. The native tab strip and bottom
    player bar stay clickable. Lyrics are centered over a blurred album-art
    background; seek, pause, skip, then exit with the button or Escape.
+8. **Manual scrolling.** Scroll a synced song with the wheel, touch, scrollbar,
+   or keyboard. The view stays where you leave it as the song advances; **Follow
+   current line** resumes automatic centering. Unsynced lyrics scroll from the
+   first line to the last in both sidebar and fullscreen views.
+9. **Stable playback.** Leave a synced song playing through changes to its
+   duration or album metadata. Its lyrics and translation should stay visible
+   without another loading skeleton. Skip to a different song and confirm the
+   new lyrics load. If LRCLIB cannot find lyrics, **Try again** retries without
+   changing songs.
 
 If (1) fails, check `playerParts` in the content script and re-run the checklist.
 Do **not** widen selectors speculatively — a selector that matches the wrong

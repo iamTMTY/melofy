@@ -76,6 +76,6 @@ export function translateErrorBody(error: unknown): { status: number; body: Reco
   const e = error as { status?: number; message?: string };
   const is429 = e?.status === 429 || /\b429\b/.test(String(e?.message ?? ''));
   return is429
-    ? { status: 429, body: { error: "You've used up today's free translations.", code: 'RATE_LIMIT' } }
+    ? { status: 429, body: { error: 'The translation provider is rate limited. Try again shortly.', code: 'UPSTREAM_RATE_LIMIT' } }
     : { status: 500, body: { error: 'Something went wrong translating this song.' } };
 }

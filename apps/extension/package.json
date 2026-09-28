@@ -1,6 +1,6 @@
 {
   "name": "@melofy/extension",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "description": "Melofy Chrome extension — YouTube Music now-playing detection + in-page lyrics widget, and the now-playing bridge for the Melofy web app.",

@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react';
 import type { NowPlaying, TrackMetadata } from '@melofy/core';
 
 const PLAYER_BAR = 'ytmusic-player-bar';
+export type YouTubeMusicNowPlaying = NowPlaying & { videoId: string | null };
+
+const currentVideoId = () => new URLSearchParams(window.location.search).get('v');
 
 function text(el: Element | null | undefined): string {
   return (el?.textContent ?? '').trim();
@@ -37,7 +40,7 @@ function readBarPositionMs(bar: Element): number | null {
   return parseClock(bar.querySelector('.time-info')?.textContent?.split('/')[0]);
 }
 
-export function readNowPlaying(): NowPlaying | null {
+export function readNowPlaying(): YouTubeMusicNowPlaying | null {
   const bar = document.querySelector(PLAYER_BAR);
   const video = activeVideo();
   if (!bar || !video) return null;
@@ -50,6 +53,7 @@ export function readNowPlaying(): NowPlaying | null {
   const byline = bar.querySelector('.byline');
   const bylineLinks = byline ? Array.from(byline.querySelectorAll('a')).map(text) : [];
   const artist = bylineLinks[0] || text(byline).split('•')[0]?.trim() || '';
+  if (!artist) return null;
   const album = bylineLinks[1] || '';
 
   const img = bar.querySelector<HTMLImageElement>('img');
@@ -77,15 +81,17 @@ export function readNowPlaying(): NowPlaying | null {
 
   return {
     track,
+    videoId: currentVideoId(),
     positionMs,
     isPlaying: !video.paused,
     capturedAt: Date.now(),
   };
 }
 
-const trackKey = (np: NowPlaying) => `${np.track.artist} ${np.track.title}`;
+const metadataKey = (np: NowPlaying) => `${np.track.artist} ${np.track.title}`;
+const trackKey = (np: YouTubeMusicNowPlaying) => `${np.videoId ?? ''} ${metadataKey(np)}`;
 
-function makeSettler(): (np: NowPlaying) => NowPlaying {
+function makeSettler<T extends YouTubeMusicNowPlaying>(): (np: T) => T {
   let lastKey = '';
   let lastPos = 0;
   let settled = true;
@@ -121,7 +127,7 @@ export function watchNowPlaying(opts: {
   intervalMs?: number;
 }): () => void {
   let lastKey = '';
-  const settle = makeSettler();
+  const settle = makeSettler<YouTubeMusicNowPlaying>();
   const tick = () => {
     const raw = readNowPlaying();
     if (!raw) return;
@@ -140,13 +146,45 @@ export function watchNowPlaying(opts: {
 
 export { NOW_PLAYING_KEY } from './config';
 
-export function useNowPlaying(intervalMs = 300): NowPlaying | null {
-  const [np, setNp] = useState<NowPlaying | null>(null);
+export function useNowPlaying(intervalMs = 300): YouTubeMusicNowPlaying | null {
+  const [np, setNp] = useState<YouTubeMusicNowPlaying | null>(null);
   useEffect(() => {
-    const settle = makeSettler();
+    const settle = makeSettler<YouTubeMusicNowPlaying>();
+    let videoId = currentVideoId();
+    let previousIdentity = '';
+    let routeChangedAt = 0;
+    let routeCandidate = '';
+    let routeCandidateSince = 0;
     const tick = () => {
+      const now = Date.now();
+      const nextVideoId = currentVideoId();
+      if (nextVideoId !== videoId) {
+        videoId = nextVideoId;
+        routeChangedAt = now;
+        routeCandidate = '';
+        setNp(null);
+        return;
+      }
       const raw = readNowPlaying();
-      setNp(raw ? settle(raw) : null);
+      if (raw) {
+        // YTM can update the URL before the player bar. Do not look up the old
+        // song under the new video ID while its metadata is catching up.
+        if (routeChangedAt) {
+          const identity = metadataKey(raw);
+          if (identity === previousIdentity && now - routeChangedAt < 1200) return;
+          if (identity !== routeCandidate) {
+            routeCandidate = identity;
+            routeCandidateSince = now;
+            return;
+          }
+          if (now - routeCandidateSince < 300) return;
+        }
+        routeChangedAt = 0;
+        previousIdentity = metadataKey(raw);
+        setNp(settle(raw));
+      }
+      // Keep the last valid reading when YTM briefly removes the video or bar,
+      // or plays an ad under the same song URL. A new video ID clears it above.
     };
     tick();
     const id = window.setInterval(tick, intervalMs);

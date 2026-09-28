@@ -26,6 +26,7 @@ describe('parseTranslationResponse', () => {
     expect(translatedLyrics[0].translated).toBe('Life is hard');
     expect(translatedLyrics[1].translated).toBe('Mo ní ìrètí');
   });
+
 });
 
 describe('looksLikeRefusal', () => {
